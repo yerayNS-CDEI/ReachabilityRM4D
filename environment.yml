@@ -1,0 +1,14 @@
+name: rm4d
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - matplotlib
+  - numpy
+  - pybullet
+  - scipy
+  - tqdm
+  - pip
+  - pip:
+      - .
