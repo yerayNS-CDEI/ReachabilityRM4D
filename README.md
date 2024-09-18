@@ -17,8 +17,16 @@ We propose Reachability Map 4D (RM4D), a map that only requires a single 4D data
 This gives a much more compact map that can be constructed by an order of magnitude faster than existing maps, with no inversion overheads and no loss in accuracy.
 Our experiments showcase the usefulness of RM4D for grasp planning with a mobile manipulator.
 
-<img src="media/forward_map.png" width="400" alt="RM4D as forward map"/>
-<img src="media/inverse_map.png" width="400" alt="RM4D as inverse map"/>
+Using RM4D as forward map, we can visualize the reachable workspace:
+
+<img src="media/forward_map.gif" width="400" alt="RM4D as forward map"/>
+
+Using RM4D as inverse map, we can visualize suitable base positions. 
+E.g. for a given end-effector position (aggregated over all possible orientations),
+or for a particular pose with orientation.
+
+<img src="media/inverse_map_pos.gif" width="400" alt="RM4D as inverse map"/>
+<img src="media/inverse_map_rot.gif" width="400" alt="RM4D as inverse map"/>
 
 ## Installation
 
