@@ -1,0 +1,30 @@
+configuration
+constructor_type: joint
+every: 1000000
+map_type: rm4d
+num_samples: 10000000
+robot_type: franka
+seed: 42
+10 save points.
+setting up...
+*********************************
+1/10: 1000000 samples after 650.18 seconds.
+	1538.0343 samples per second
+2/10: 2000000 samples after 1290.47 seconds.
+	1549.8275 samples per second
+3/10: 3000000 samples after 1932.38 seconds.
+	1552.4864 samples per second
+4/10: 4000000 samples after 2572.39 seconds.
+	1554.9720 samples per second
+5/10: 5000000 samples after 3218.28 seconds.
+	1553.6265 samples per second
+6/10: 6000000 samples after 3855.42 seconds.
+	1556.2497 samples per second
+7/10: 7000000 samples after 4505.28 seconds.
+	1553.7335 samples per second
+8/10: 8000000 samples after 5148.16 seconds.
+	1553.9523 samples per second
+9/10: 9000000 samples after 5784.07 seconds.
+	1555.9973 samples per second
+10/10: 10000000 samples after 6418.27 seconds.
+	1558.0523 samples per second
