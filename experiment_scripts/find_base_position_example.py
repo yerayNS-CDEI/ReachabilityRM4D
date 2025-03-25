@@ -77,6 +77,7 @@ def load_scene():
 
 def main():
     rmap = ReachabilityMap4D.from_file(map_fn)
+    print(rmap._get_xy_points())
     scene = load_scene()
     grasps = load_grasps()
     sim = Simulator(with_gui=True)
@@ -119,6 +120,7 @@ def main():
         timer.start('forward mapping')
         for i, g in enumerate(grasps_per_object):
             reachable_by_map[i] = rmap.is_reachable(rmap.get_indices_for_ee_pose(g))
+            print("tf_ee", g)
         timer.stop('forward mapping')
         print(f'****************************')
         print(key)
@@ -129,7 +131,16 @@ def main():
     grids[0].visualize_in_sim(sim)
     input()
 
+    print(grids[0])
+    print(dir(grids[0])) 
 
+    # i = 0
+    # for elem in grids:
+    #     grids[i].visualize_in_sim(sim)
+    #     i = i+1
+
+    # rmap.show_occupancy_per_dim()
+    
 
 if __name__ == '__main__':
     main()

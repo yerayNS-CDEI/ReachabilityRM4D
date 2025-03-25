@@ -10,9 +10,13 @@ class UR5E(RobotBase):
         self._robot_id = self.sim.bullet_client.loadURDF(UR5E_URDF,
                                                          self.base_pos, self.base_orn, useFixedBase=True)
 
+        print("Num joints in model:", self.sim.bullet_client.getNumJoints(self._robot_id))
+        for i in range(self.sim.bullet_client.getNumJoints(self._robot_id)):
+            print(i, self.sim.bullet_client.getJointInfo(self._robot_id, i)[1])
+
         # robot properties
-        self._end_effector_link_id = 17
-        self._arm_joint_ids = [0, 1, 2, 3, 4, 5]
+        self._end_effector_link_id = 6      # index of TCP
+        self._arm_joint_ids = [0, 1, 2, 3, 4, 5]    # movable joints
         self.home_conf = [1.57, -1.57, 1.57, -1.57, -1.57, 0.0]
 
         # for i in range(self.sim.bullet_client.getNumJoints(self.robot_id)):
@@ -53,7 +57,7 @@ class UR5E(RobotBase):
 
     def in_self_collision(self):
         # check self-collision
-        ignore_links = [11, 16, 17]  # they do not have a collision shape
+        ignore_links = []  # they do not have a collision shape
         first_links = [0, 1, 2, 3, 4]  # 5 cannot collide with the fingers due to kinematics
 
         for first_link in first_links:
@@ -73,17 +77,35 @@ class UR5E(RobotBase):
         lower_limits = self.joint_limits[:, 0]
         upper_limits = self.joint_limits[:, 1]
         joint_ranges = upper_limits - lower_limits
+        rest_poses = rest_q.tolist()
 
-        # include finger joints
-        lower_limits = lower_limits.tolist() + [0.0]*6
-        upper_limits = upper_limits.tolist() + [0.0]*6
-        joint_ranges = joint_ranges.tolist() + [0.0]*6
-        rest_poses = rest_q.tolist() + [0.0]*6
+        # transform them to lists (if not, there are errors in pybullet)
+        lower_limits = lower_limits.tolist()
+        upper_limits = upper_limits.tolist()
+        joint_ranges = joint_ranges.tolist()
+
+        # # include finger joints
+        # lower_limits = lower_limits.tolist() + [0.0]*6
+        # upper_limits = upper_limits.tolist() + [0.0]*6
+        # joint_ranges = joint_ranges.tolist() + [0.0]*6
+        # rest_poses = rest_q.tolist() + [0.0]*6
+
+        # print("Robot ID:", self.robot_id)
+        # print("EE link ID:", self.end_effector_link_id)
+        # print("Pos:", pos)
+        # print("Quat:", quat)
+        # print("Lower:", lower_limits)
+        # print("Upper:", upper_limits)
+        # print("Ranges:", joint_ranges)
+        # print("Rest poses:", rest_poses)
+        # print("Num joints:", len(self.arm_joint_ids))
 
         # execute IK
         full_joint_positions = self.sim.bullet_client.calculateInverseKinematics(
             self.robot_id, self.end_effector_link_id, pos, quat,
             lowerLimits=lower_limits, upperLimits=upper_limits, jointRanges=joint_ranges, restPoses=rest_poses,
             maxNumIterations=n_iterations, residualThreshold=threshold)
-
+        # full_joint_positions = self.sim.bullet_client.calculateInverseKinematics(
+        #     self.robot_id, self.end_effector_link_id, pos, quat)
+        
         return np.array(full_joint_positions)[self.arm_joint_ids]

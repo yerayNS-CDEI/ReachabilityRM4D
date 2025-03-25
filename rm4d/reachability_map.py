@@ -273,3 +273,9 @@ class ReachabilityMap4D(MapBase):
             if skip_zero and val == 0:
                 continue
             sim.add_sphere(list(point[:3]), radius=0.025, color=[1.0 - val/max_val, val/max_val, 0.0])
+            # visual_shape = sim.bullet_client.createVisualShape(p.GEOM_BOX,
+            #                                                        halfExtents=[self.x_res/2, self.y_res/2, 0.005],
+            #                                                        rgbaColor=[1.0 - val/max_val, val/max_val, 0.0])
+            # x = self.x_limits[0] + (i + 0.5) * self.x_res
+            # y = self.y_limits[0] + (j + 0.5) * self.y_res
+            # sim.bullet_client.createMultiBody(baseMass=0, baseVisualShapeIndex=visual_shape, basePosition=[x, y, 0])

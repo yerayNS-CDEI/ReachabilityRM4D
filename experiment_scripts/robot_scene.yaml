@@ -1,0 +1,26 @@
+bg_objects: []
+ground_area_x: 2
+ground_area_y: 2
+object_library_fn: assets/object_library/object_library.yaml
+objects:
+- object_type: 004_sugar_box
+  pose:
+  - - 0.988145486124768
+    - -0.15352034197969655
+    - 5.338242032816016e-05
+    - 0.004996605958453024
+  - - 0.15352034449532176
+    - 0.9881454860714283
+    - -4.671935855339271e-05
+    - 0.01787515521880422
+  - - -4.557722578065021e-05
+    - 5.43608108279528e-05
+    - 0.9999999974838094
+    - 0.002445027306550135
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+printout: null
+yaml_file_type: Scene
+yaml_file_version: '1.0'

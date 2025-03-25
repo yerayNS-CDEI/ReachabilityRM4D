@@ -16,7 +16,7 @@ class RobotBase(ABC):
         self._sim = simulator
         self.base_pos = base_pos or [0, 0, 0.01]
         self.base_orn = base_orn or [0, 0, 0, 1]
-        assert self.base_pos[2] == 0.01
+        # assert self.base_pos[2] == 0.01
 
     @property
     def sim(self) -> Simulator:
@@ -135,10 +135,12 @@ class RobotBase(ABC):
             orn_diff = self.sim.angle_between_quaternions(quat, actual_orn, as_degree=True)
 
             if pos_diff + orn_diff > threshold:
+                # print("Not below threshold")      # debugging
                 continue
 
             if not self.in_collision():
                 return config  # success!
+            # return config
 
         # all trials were unsuccessful
         return None
@@ -168,6 +170,7 @@ class RobotBase(ABC):
         Determines whether the robot is in either self-collision or collision with plane.
         :return: bool, True, if the robot is in collision
         """
+        # print("Selfcollision: ",self.in_self_collision(),". Plane collision: ",self.in_collision_with_plane())    # debugging
         return self.in_self_collision() or self.in_collision_with_plane()
 
     def get_random_joint_config(self, prevent_collisions=True, rng=None):
