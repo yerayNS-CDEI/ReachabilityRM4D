@@ -10,6 +10,7 @@ from rm4d.robots import Simulator
 from rm4d.robots.assets import FRANKA_150_URDF, FRANKA_160_URDF, FRANKA_URDF
 from exp_utils import robot_types, franka_versions
 
+import math
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -103,33 +104,39 @@ def get_full_map_poses_from_grid(valid_positions, z_value, samples_per_point, se
 
     return tfs_ee
 
-# def get_poses_from_positions_and_orientations(valid_positions, z_value, orientations):
-#     """
-#     Generates poses by combining each (x, y) with all fixed orientations.
+def get_poses_from_positions_and_orientations(valid_positions, z_value, orientations):
+    """
+    Generates poses by combining each (x, y) with all fixed orientations.
 
-#     :param valid_positions: np.ndarray (P, 2)
-#     :param z_value: float
-#     :param orientations: np.ndarray (N, 3, 3), fixed orientation matrices
-#     :return: np.ndarray (P * N, 4, 4)
-#     """
-#     n_positions = valid_positions.shape[0]
-#     n_orientations = orientations.shape[0]
-#     total = n_positions * n_orientations
+    :param valid_positions: np.ndarray (P, 2)
+    :param z_value: float
+    :param orientations: np.ndarray (N, 3, 3), fixed orientation matrices
+    :return: np.ndarray (P * N, 4, 4)
+    """
+    n_positions = valid_positions.shape[0]
+    n_orientations = orientations.shape[0]
+    total = n_positions * n_orientations
 
-#     tfs_ee = np.full((total, 4, 4), np.eye(4))
+    tfs_ee = np.full((total, 4, 4), np.eye(4))
 
-#     # Repeat positions and tile orientations
-#     x_pos = np.repeat(valid_positions[:, 0], n_orientations)
-#     y_pos = np.repeat(valid_positions[:, 1], n_orientations)
-#     tfs_ee[:, 0, 3] = x_pos
-#     tfs_ee[:, 1, 3] = y_pos
-#     tfs_ee[:, 2, 3] = z_value
+    # Repeat positions and tile orientations
+    x_pos = np.repeat(valid_positions[:, 0], n_orientations)
+    y_pos = np.repeat(valid_positions[:, 1], n_orientations)
+    z_pos = np.repeat(z_value, total)
+    tfs_ee[:, 0, 3] = x_pos
+    tfs_ee[:, 1, 3] = y_pos
+    tfs_ee[:, 2, 3] = z_pos
 
-#     # Tile orientation matrices across positions
-#     tiled_rotations = np.tile(orientations, (n_positions, 1, 1))
-#     tfs_ee[:, :3, :3] = tiled_rotations
+    # Tile orientation matrices across positions
+    tiled_rotations = np.tile(orientations, (n_positions, 1, 1))
+    tfs_ee[:, :3, :3] = tiled_rotations
 
-#     return tfs_ee
+    return tfs_ee
+
+# def generate_fixed_orientations(n_orientations, seed):
+#     rng = np.random.default_rng(seed)
+#     rotations = Rotation.random(n_orientations, random_state=rng)
+#     return rotations.as_matrix()  # shape: (n_orientations, 3, 3)
 
 # # Precompute once
 # orientations = generate_fixed_orientations(n_orientations=20, seed=42)
@@ -176,6 +183,52 @@ def evaluate_ik(tfs_ee, sim, robot, threshold, iterations, seed):
 
     return reachable_by_ik
 
+def fibonacci_sphere(samples=100):
+    """
+    Generate points uniformly distributed on the surface of a sphere using Fibonacci sampling.
+    
+    :param samples: Number of points to sample
+    :returns: (N, 3) array of points on the unit sphere
+    """
+    x = []
+    y = []
+    z = []
+
+    phi = np.pi * (3. - np.sqrt(5.))  # golden angle in radians
+    for i in range(samples):
+        y.append(1 - (i / float(samples - 1)) * 2)  # y goes from 1 to -1
+        radius = np.sqrt(1 - y[i] * y[i])  # radius at y
+        x.append(np.cos(phi * i) * radius)  # x = cos(phi) * radius
+        z.append(np.sin(phi * i) * radius)  # z = sin(phi) * radius
+
+    return np.array(list(zip(x, y, z)))
+
+def fibonacci_rotations(samples=20):
+    """ 
+    Generates evenly distributed orientations. 
+    :param samples: number of orientations for each point
+    :return: vector of rotations and rotation matrices
+    """
+    # Generate 20 evenly distributed points on the unit sphere
+    samples = 20
+    points = fibonacci_sphere(samples)
+
+    # The original vector is the Z-axis (0, 0, 1)
+    origin_vector = np.array([0, 0, 1])
+
+    # We need to create rotations to align `origin_vector` with each of the sampled points
+    rots = []
+    rot_matrices = []
+    for point in points:
+        # The rotation matrix that aligns origin_vector to the point on the sphere
+        # The point is a unit vector, so we can directly treat it as the desired direction
+        rotation = Rotation.align_vectors([point], [origin_vector])[0]  # Align origin_vector to the point
+        rots.append(rotation)
+        rot_matrices.append(rotation.as_matrix())
+
+    rot_matrices = np.array(rot_matrices)
+
+    return rots, rot_matrices
 
 def main(args):
     robot_type = args.robot_type
@@ -200,23 +253,11 @@ def main(args):
     print("Robot radius: ", radius)
     print("Robot altitude: ", z_max)
 
-    # Determine the range of x and y positions
-    # x_min, x_max = np.min(poses[:, 0, 3]), np.max(poses[:, 0, 3])
-    # y_min, y_max = np.min(poses[:, 1, 3]), np.max(poses[:, 1, 3])
-    x_min = -radius
-    x_max = radius
-    y_min = -radius
-    y_max = radius    
-    print("Value ranges: [",x_min,",",x_max,"] and [",y_min,",",y_max,"]")
+    grid = np.load('grid2D_77.npy', allow_pickle=True)
+    grid_size_x = math.sqrt(grid.shape[0])
+    grid_size_y = grid_size_x
 
-    # Set a desired grid resolution (number of grid cells per unit distance)
-    max_error_distance = 0.002886 # Distance from voxel to voxel (maximum distnace in the diagonal to obtain a 5mm error - KPI)
-    grid_resolution = 1/max_error_distance  # This is the number of cells per unit distance (you can adjust this as needed)
-
-    # Calculate the grid size based on the actual range and grid resolution
-    grid_size_x = int(np.ceil((x_max - x_min) * grid_resolution))  # Grid size in x-direction
-    grid_size_y = int(np.ceil((y_max - y_min) * grid_resolution))  # Grid size in y-direction
-    print("Grid size:", grid_size_x, " x ", grid_size_y)
+    rots, rot_matrices = fibonacci_rotations(samples=20)
 
     input("Press Enter to start the Reachability Map computation...")
 
@@ -228,13 +269,7 @@ def main(args):
         print(f"Evaluating for z-value: {z_value}")
 
         # Get poses for the current z value
-        poses = get_evaluation_poses(radius, z_value, num_samples, seed)
-        # poses_fn = os.path.join(data_dir, 'poses.npy')
-        # np.save(poses_fn, poses)
-
-        # Print the sampled poses
-        # print("Selected poses (in x-y, constant z-plane):")
-        # print(poses[:, 0, 3], poses[:, 1, 3], f"z={z_value}")  # x, y, and constant z
+        poses = get_poses_from_positions_and_orientations(grid, z_value, rot_matrices)
 
         # Create a map of reachable positions in the x-y plane
         reachability_map = np.zeros((grid_size_x, grid_size_y))

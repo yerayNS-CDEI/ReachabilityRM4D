@@ -1,8 +1,12 @@
 import numpy as np
+# import matplotlib
+# matplotlib.use('TkAgg')  # or 'Agg' for non-GUI environments
 import matplotlib.pyplot as plt
+import math
 
 from exp_utils import robot_types
 from rm4d.robots import Simulator
+from scipy.spatial.transform import Rotation
 
 
 def create_2d_grid(x_min, x_max, y_min, y_max, resolution):
@@ -45,6 +49,62 @@ def world_to_grid(x, y, x_vals, y_vals):
     return i, j
 
 
+def generate_random_orientations(n_orientations, seed):
+    rng = np.random.default_rng(seed)
+    rotations = Rotation.random(n_orientations, random_state=rng)
+    return rotations.as_matrix()  # shape: (n_orientations, 3, 3)
+
+def fibonacci_sphere(samples=100):
+    """
+    Generate points uniformly distributed on the surface of a sphere using Fibonacci sampling.
+    
+    :param samples: Number of points to sample
+    :returns: (N, 3) array of points on the unit sphere
+    """
+    x = []
+    y = []
+    z = []
+
+    phi = np.pi * (3. - np.sqrt(5.))  # golden angle in radians
+    for i in range(samples):
+        y.append(1 - (i / float(samples - 1)) * 2)  # y goes from 1 to -1
+        radius = np.sqrt(1 - y[i] * y[i])  # radius at y
+        x.append(np.cos(phi * i) * radius)  # x = cos(phi) * radius
+        z.append(np.sin(phi * i) * radius)  # z = sin(phi) * radius
+
+    return np.array(list(zip(x, y, z)))
+
+
+def get_poses_from_positions_and_orientations(valid_positions, z_value, orientations):
+    """
+    Generates poses by combining each (x, y) with all fixed orientations.
+
+    :param valid_positions: np.ndarray (P, 2)
+    :param z_value: float
+    :param orientations: np.ndarray (N, 3, 3), fixed orientation matrices
+    :return: np.ndarray (P * N, 4, 4)
+    """
+    n_positions = valid_positions.shape[0]
+    n_orientations = orientations.shape[0]
+    total = n_positions * n_orientations
+
+    tfs_ee = np.full((total, 4, 4), np.eye(4))
+
+    # Repeat positions and tile orientations
+    x_pos = np.repeat(valid_positions[:, 0], n_orientations)
+    y_pos = np.repeat(valid_positions[:, 1], n_orientations)
+    z_pos = np.repeat(z_value, total)
+    tfs_ee[:, 0, 3] = x_pos
+    tfs_ee[:, 1, 3] = y_pos
+    tfs_ee[:, 2, 3] = z_pos
+
+    # Tile orientation matrices across positions
+    tiled_rotations = np.tile(orientations, (n_positions, 1, 1))
+    tfs_ee[:, :3, :3] = tiled_rotations
+
+    return tfs_ee
+
+
 sim = Simulator(with_gui=False)
 robot = robot_types['ur5e'](sim, base_pos=[0, 0, 0.8])
 
@@ -62,8 +122,11 @@ y_max = radius
 print("Value ranges: [",x_min,",",x_max,"] and [",y_min,",",y_max,"]")
 
 # Set a desired grid resolution (number of grid cells per unit distance)
-max_error_distance = 0.002886 # Distance from voxel to voxel (maximum distnace in the diagonal to obtain a 5mm error - KPI)
+# max_error_distance = 0.002886 # Distance from voxel to voxel (maximum distnace in the diagonal to obtain a 5mm error - KPI)
+max_error_distance = 0.02886  # Distance from voxel to voxel (maximum distnace in the diagonal to obtain a 5mm error - KPI)
+max_error = math.sqrt(3)*max_error_distance*1000   # Position error in mm
 grid_resolution = 1/max_error_distance  # This is the number of cells per unit distance (you can adjust this as needed)
+print(f"Max error: {max_error:.2f} mm")
 
 # Calculate the grid size based on the actual range and grid resolution
 grid_size_x = int(np.ceil((x_max - x_min) * grid_resolution))  # Grid size in x-direction
@@ -74,6 +137,16 @@ print("Grid size:", grid_size_x, " x ", grid_size_y)
 resolution = (x_max - x_min) / 763  # ensures 764 steps
 grid, x_vals, y_vals = create_2d_grid(x_min, x_max, y_min, y_max, resolution)
 filtered_coords, mask = filter_circle_area(grid, radius)
+# print(filtered_coords[0:10])
+# Save the reachability maps to a file for future access
+filename1 = f"grid2D_{grid_size_x}.csv"
+np.savetxt(filename1, filtered_coords, delimiter=",")
+filename2 = f"grid2D_{grid_size_x}.npy"
+np.save(filename2, filtered_coords)
+print(f"Grid 2D saved to {filename1} and {filename2}")
+
+aaa = np.load('grid2D_77.npy', allow_pickle=True)
+print(aaa.shape[0],aaa.shape[1] )
 
 occupancy_map = np.zeros((764, 764), dtype=np.uint8)
 occupancy_map[mask] = 1  # only mark valid cells
@@ -81,14 +154,64 @@ occupancy_map[mask] = 1  # only mark valid cells
 print("Total points in full grid:", grid.shape[0] * grid.shape[1])
 print("Points inside circle:", filtered_coords.shape[0])
 
+plt.figure()
 plt.imshow(mask.T, origin='lower', cmap='gray')
 plt.title("Circular Area Mask")
 plt.xlabel("Y index")
 plt.ylabel("X index")
 plt.show()
 
-# # Wait for user interaction
-# input("Press Enter to close all plots...")
+# orientations = generate_random_orientations(n_orientations=20, seed=42)
+
+# Generate 20 evenly distributed points on the unit sphere
+samples = 20
+points = fibonacci_sphere(samples)
+
+# The original vector is the Z-axis (0, 0, 1)
+origin_vector = np.array([0, 0, 1])
+
+# We need to create rotations to align `origin_vector` with each of the sampled points
+rots = []
+rot_matrices = []
+for point in points:
+    # The rotation matrix that aligns origin_vector to the point on the sphere
+    # The point is a unit vector, so we can directly treat it as the desired direction
+    rotation = Rotation.align_vectors([point], [origin_vector])[0]  # Align origin_vector to the point
+    rots.append(rotation)
+    rot_matrices.append(rotation.as_matrix())
+
+rot_matrices = np.array(rot_matrices)
+
+# rots, rot_matrices = fibonacci_rotations(samples)
+
+# Apply the rotations to the origin vector (1, 0, 0)
+rotated_vectors = np.array([rot.apply(origin_vector) for rot in rots])
+
+# Plot the result
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
+# Plot the rotated vectors
+ax.scatter(rotated_vectors[:, 0], rotated_vectors[:, 1], rotated_vectors[:, 2], s=50)
+ax.quiver(0, 0, 0, rotated_vectors[:, 0], rotated_vectors[:, 1], rotated_vectors[:, 2], color='b', length=0.8, normalize=True)
+
+ax.set_title("Evenly Distributed Rotated Orientations")
+plt.show()
+
+z_value = 0.3
+poses = get_poses_from_positions_and_orientations(filtered_coords, z_value, rot_matrices)
+
+# sim = Simulator(with_gui=True)
+
+# for i in range(10):
+#     print([poses[i*20+1,0,3],poses[i*20+1,1,3],z_value])
+#     sim.add_sphere([poses[i*20+1,0,3],poses[i*20+1,1,3],z_value], 0.005, [255,0,0,1.0])
+#     # Wait for user interaction
+#     input("Press Enter to close all plots...")
+# sim.add_sphere([-1.097116644823067, -0.027391874180864972, 0.3], 0.005, [255,0,0,1.0])
+
+# Wait for user interaction
+input("Press Enter to close all plots...")
 
 # i, j = world_to_grid(0.0, -0.5, x_vals, y_vals)
 # print(i, j)  # might print something like (381, 208)
