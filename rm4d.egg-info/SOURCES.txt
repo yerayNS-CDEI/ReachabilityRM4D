@@ -22,7 +22,9 @@ rm4d/robots/simulator.py
 rm4d/robots/ur5e.py
 rm4d/robots/assets/__init__.py
 rm4d/robots/assets/frame_vis.urdf
-rm4d/robots/assets/ur5e_2f85_test.urdf
+rm4d/robots/assets/ur5e_2f85 original.urdf
+rm4d/robots/assets/ur5e_2f85.urdf
+rm4d/robots/assets/__pycache__/__init__.cpython-310.pyc
 rm4d/robots/assets/franka_panda/LICENSE.txt
 rm4d/robots/assets/franka_panda/adjustments.txt
 rm4d/robots/assets/franka_panda/panda150.urdf
