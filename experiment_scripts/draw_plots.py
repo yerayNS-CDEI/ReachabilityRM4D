@@ -5,23 +5,23 @@ import matplotlib.pyplot as plt
 experiments = {
     'Franka':
         {
-            'Zacharias et al.': 'data/zach_franka_joint_42',
-            'Zacharias et al. (5D)': 'data/za5d_franka_joint_42',
+            # 'Zacharias et al.': 'data/zach_franka_joint_42',
+            # 'Zacharias et al. (5D)': 'data/za5d_franka_joint_42',
             'RM4D': 'data/rm4d_franka_joint_42',
         },
     'UR5e':
         {
-            'Zacharias et al.': 'data/zach_ur5e_joint_42',
-            'Zacharias et al. (5D)': 'data/za5d_ur5e_joint_42',
-            'RM4D': 'data/rm4d_ur5e_joint_42',
+            # 'Zacharias et al.': 'data/zach_ur5e_joint_42',
+            # 'Zacharias et al. (5D)': 'data/za5d_ur5e_joint_42',
+            # 'RM4D': 'data/rm4d_ur5e_joint_42',
         }
 }
 
 franka_limited_exp = {
     'Franka': 'data/rm4d_franka_joint_42',
-    'Franka 180': 'data/rm4d_franka180_joint_42',
-    'Franka 160': 'data/rm4d_franka160_joint_42',
-    'Franka 150': 'data/rm4d_franka150_joint_42',
+    # 'Franka 180': 'data/rm4d_franka180_joint_42',
+    # 'Franka 160': 'data/rm4d_franka160_joint_42',
+    # 'Franka 150': 'data/rm4d_franka150_joint_42',
 }
 
 accuracy_fn = 'accuracy_metrics.npy'
@@ -75,6 +75,8 @@ def plot_accuracy():
 
         plt.show()
 
+        print("Accuracy plotted.")
+
 
 def plot_franka_limited_accuracy():
     robots = list(franka_limited_exp.keys())
@@ -107,6 +109,8 @@ def plot_franka_limited_accuracy():
 
     plt.show()
 
+    print("Limited accuracy plotted.")
+
 
 def plot_hit_stats():
     robots = list(experiments.keys())
@@ -136,6 +140,8 @@ def plot_hit_stats():
         ax.set_yscale('log')
         ax.grid(True, which='both')
         plt.show()
+
+        print("Hit status plotted.")
 
 
 if __name__ == '__main__':

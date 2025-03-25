@@ -1,0 +1,6 @@
+The base panda.urdf is taken directly from pyBullet's repository.
+The joint limits as per robot spec are in the safetycontroller tag, but those are ignored by pyBullet.
+It uses only the hard joint limits, which are 3-4 degrees more. We adjusted this so that the same joint limits
+as in the safetycontroller are used as hard joint limits. This is in line with the robot spec as well.
+
+The versions 166, 160, 150 are only distinguished by their joint range for joint 1 and 7.
