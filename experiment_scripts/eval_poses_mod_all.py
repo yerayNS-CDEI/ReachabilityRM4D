@@ -27,12 +27,12 @@ def parse_args():
 
 
 def get_sim_and_robot(robot_type, degrees):
-    sim = Simulator(with_gui=True)
+    sim = Simulator(with_gui=False)
     if robot_type == 'franka':
         urdf_fn = franka_versions[degrees]
         robot = robot_types[robot_type](sim, urdf_fn=urdf_fn)
     else:
-        robot = robot_types[robot_type](sim, base_pos=[0, 0, 0.8])
+        robot = robot_types[robot_type](sim) # base_pos=[0, 0, 0.8]
     return sim, robot
 
 
@@ -70,39 +70,39 @@ def get_evaluation_poses(max_radius, z_value, n_samples, seed):
 
     return tfs_ee
 
-def get_full_map_poses_from_grid(valid_positions, z_value, samples_per_point, seed):
-    """
-    Sample poses at every (x, y) point in the grid, limited to the circular mask area.
-    Each point gets N random end-effector orientations.
+# def get_full_map_poses_from_grid(valid_positions, z_value, samples_per_point, seed):
+#     """
+#     Sample poses at every (x, y) point in the grid, limited to the circular mask area.
+#     Each point gets N random end-effector orientations.
 
-    :param grid: np.ndarray of shape (H, W, 2), with (x, y) coordinates
-    :param mask: np.ndarray of shape (H, W), bool mask for points inside the circle
-    :param z_value: float, z position for all poses
-    :param samples_per_point: int, number of poses to generate per (x, y) point
-    :param seed: int, random seed for reproducibility
-    :returns: np.ndarray of shape (N, 4, 4), with N = num_masked_points * samples_per_point
-    """
-    rng = np.random.default_rng(seed)
+#     :param grid: np.ndarray of shape (H, W, 2), with (x, y) coordinates
+#     :param mask: np.ndarray of shape (H, W), bool mask for points inside the circle
+#     :param z_value: float, z position for all poses
+#     :param samples_per_point: int, number of poses to generate per (x, y) point
+#     :param seed: int, random seed for reproducibility
+#     :returns: np.ndarray of shape (N, 4, 4), with N = num_masked_points * samples_per_point
+#     """
+#     rng = np.random.default_rng(seed)
 
-    n_positions = valid_positions.shape[0]
-    total_samples = n_positions * samples_per_point
+#     n_positions = valid_positions.shape[0]
+#     total_samples = n_positions * samples_per_point
 
-    # Create (total_samples, 4, 4) identity matrices
-    tfs_ee = np.full((total_samples, 4, 4), np.eye(4))
+#     # Create (total_samples, 4, 4) identity matrices
+#     tfs_ee = np.full((total_samples, 4, 4), np.eye(4))
 
-    # Random orientations for each sample
-    tfs_ee[:, :3, :3] = Rotation.random(num=total_samples, random_state=rng).as_matrix()
+#     # Random orientations for each sample
+#     tfs_ee[:, :3, :3] = Rotation.random(num=total_samples, random_state=rng).as_matrix()
 
-    # Assign positions
-    # Repeat each position samples_per_point times
-    x_pos = np.repeat(valid_positions[:, 0], samples_per_point)
-    y_pos = np.repeat(valid_positions[:, 1], samples_per_point)
+#     # Assign positions
+#     # Repeat each position samples_per_point times
+#     x_pos = np.repeat(valid_positions[:, 0], samples_per_point)
+#     y_pos = np.repeat(valid_positions[:, 1], samples_per_point)
 
-    tfs_ee[:, 0, 3] = x_pos
-    tfs_ee[:, 1, 3] = y_pos
-    tfs_ee[:, 2, 3] = z_value
+#     tfs_ee[:, 0, 3] = x_pos
+#     tfs_ee[:, 1, 3] = y_pos
+#     tfs_ee[:, 2, 3] = z_value
 
-    return tfs_ee
+#     return tfs_ee
 
 def get_poses_from_positions_and_orientations(valid_positions, z_value, orientations):
     """
@@ -233,7 +233,7 @@ def fibonacci_rotations(samples=20):
 def main(args):
     robot_type = args.robot_type
     degrees = args.degrees
-    num_samples = args.num_samples
+    # num_samples = args.num_samples
     threshold = args.threshold
     iterations = args.iterations
     seed = args.seed
@@ -253,16 +253,62 @@ def main(args):
     print("Robot radius: ", radius)
     print("Robot altitude: ", z_max)
 
-    grid = np.load('grid2D_77.npy', allow_pickle=True)
-    grid_size_x = math.sqrt(grid.shape[0])
-    grid_size_y = grid_size_x
+    x_min = -radius
+    x_max = radius
+    y_min = -radius
+    y_max = radius
+    print("Value ranges: [",x_min,",",x_max,"] and [",y_min,",",y_max,"]")
+
+    voxel_distance = 0.2    # IMPORTANT TO BE CHANGED (SAME AS USED IN GRID CREATION)
+    max_error = math.sqrt(3)*voxel_distance*1000   # Position error in mm
+    grid_resolution = 1/voxel_distance
+    print(f"Grid resolution: {grid_resolution:.2f}")
+    print(f"Max error: {max_error:.2f} mm")
+
+    grids_dir = os.path.join('data','grids')
+
+    # Get a list of .npy files in the directory
+    npy_files = [f for f in os.listdir(grids_dir) if f.endswith('.npy')]
+
+    # Check if there are any .npy files in the directory
+    if not npy_files:
+        print("No .npy files found in the directory.")
+    else:
+        # Display the list of .npy files to the user
+        print("Available .npy files:")
+        for i, filename in enumerate(npy_files, start=1):
+            print(f"{i}. {filename}")
+        
+        # Ask the user to choose a file
+        choice = input("Enter the number of the file you want to load: ")
+        
+        # Ensure the input is a valid number and within the available range
+        try:
+            choice = int(choice)
+            if 1 <= choice <= len(npy_files):
+                selected_file = npy_files[choice - 1]
+                grid_filename = os.path.join(grids_dir, selected_file)
+                grid = np.load(grid_filename, allow_pickle=True)
+                print(f"Loaded {grid_filename}")
+            else:
+                print("Invalid choice. No file loaded.")
+        except ValueError:
+            print("Invalid input. Please enter a valid number.")
+
+    # Calculate the grid size based on the actual range and grid resolution
+    grid_size_x = int(np.ceil((x_max - x_min) * grid_resolution))  # Grid size in x-direction
+    grid_size_y = int(np.ceil((y_max - y_min) * grid_resolution))  # Grid size in y-direction
+    print("Grid size:", grid_size_x, " x ", grid_size_y)
 
     rots, rot_matrices = fibonacci_rotations(samples=20)
+
+    num_samples = grid.shape[0]
+    print("Number of samples: ",num_samples)
 
     input("Press Enter to start the Reachability Map computation...")
 
     # Store reachability maps for each z-level in a dictionary
-    reachability_maps = {}
+    reachability_map = {}
 
     # Iterate through the z-values
     for z_value in z_values:
@@ -270,9 +316,10 @@ def main(args):
 
         # Get poses for the current z value
         poses = get_poses_from_positions_and_orientations(grid, z_value, rot_matrices)
+        print("Number of total poses: ",poses.shape[0])
 
         # Create a map of reachable positions in the x-y plane
-        reachability_map = np.zeros((grid_size_x, grid_size_y))
+        reachability_slice = np.zeros((grid_size_x, grid_size_y))
 
         # Evaluate reachability using IK
         reachable_by_ik = evaluate_ik(poses, sim, robot, threshold, iterations, seed)
@@ -289,14 +336,14 @@ def main(args):
             
             # Set the corresponding grid position to True if reachable
             if reachable_by_ik[i]:
-                reachability_map[x_idx, y_idx] += 1 
+                reachability_slice[x_idx, y_idx] += 1 
 
-        # Save the reachability map for the current z-value
-            reachability_maps[z_value] = reachability_map
+            # Save the reachability map for the current z-value
+            reachability_map[z_value] = reachability_slice
 
         # Plotting the reachability map
         plt.figure()
-        plt.imshow(reachability_map, cmap='hot', interpolation='nearest')
+        plt.imshow(reachability_slice, cmap='hot', interpolation='nearest')
         plt.colorbar(label='Reachability')
         plt.title('Reachability Map')
         plt.xlabel('X Index')
@@ -306,24 +353,47 @@ def main(args):
         print('completed.')
         # print(f'{num_samples} poses sampled and stored to {poses_fn}')
         # print(f'reachability evaluated and stored to {reachable_fn}')
+        print(f'{100.0*reachable_by_ik.sum()/poses.shape[0]}% determined reachable.')
+        print(f'{100.0*(poses.shape[0]-reachable_by_ik.sum())/poses.shape[0]}% determined not reachable.')
         print(f'{100.0*reachable_by_ik.sum()/num_samples}% determined reachable.')
         print(f'{100.0*(num_samples-reachable_by_ik.sum())/num_samples}% determined not reachable.')
 
+        # Save the reachability slices to a file for future access
+        data_dir = os.path.join('data', f'eval_poses_{robot_name}')
+        pathlib.Path(data_dir).mkdir(parents=True, exist_ok=True)
+        reachability_slices_fn = os.path.join(data_dir,f"reachability_slice_{grid_size_x}_{z_value}.npy")
+        
+        # Check if the file already exists and warn before overwriting
+        if os.path.exists(reachability_slices_fn):
+            response = input(f"Warning: {reachability_slices_fn} already exists. Do you want to overwrite it? (y/n): ")
+            if response.lower() != 'y':
+                print("File not overwritten.")
+            else:
+                np.save(reachability_slices_fn, reachability_map)
+                print(f"Reachability maps saved to {reachability_slices_fn}.")
+        else:
+            np.save(reachability_slices_fn, reachability_map)
+            print(f"Reachability maps saved to {reachability_slices_fn}.")
 
-    # Save the reachability maps to a file for future access
-    reachability_maps_fn = "reachability_maps.npy"
-    np.save(reachability_maps_fn, reachability_maps)
-    print(f"Reachability maps saved to {reachability_maps_fn}")
-
-    # reachable_by_ik = evaluate_ik(poses, sim, robot, threshold, iterations, seed)
     sim.disconnect()
-    # reachable_fn = os.path.join(data_dir, 'reachable_by_ik.npy')
-    # np.save(reachable_fn, reachable_by_ik)
+
+    # Save the reachability map to a file for future access
+    reachability_map_fn = os.path.join(data_dir,f"reachability_map_{grid_size_x}.npy")
+
+    # Check if the file already exists and warn before overwriting
+    if os.path.exists(reachability_map_fn):
+        response = input(f"Warning: {reachability_map_fn} already exists. Do you want to overwrite it? (y/n): ")
+        if response.lower() != 'y':
+            print("File not overwritten.")
+        else:
+            np.save(reachability_map_fn, reachability_map)
+            print(f"Reachability maps saved to {reachability_map_fn}.")
+    else:
+        np.save(reachability_map_fn, reachability_map)
+        print(f"Reachability maps saved to {reachability_map_fn}.")
 
     # Wait for user interaction before closing all plots
     input("Press Enter to close all plots...")
 
 if __name__ == '__main__':
     main(parse_args())
-
-# np.load('reachability_maps.npy', allow_pickle=True)
