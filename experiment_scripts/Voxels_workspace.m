@@ -1,5 +1,5 @@
 
-filename = 'grid2D.csv';
+filename = 'data/grids/grid2D_11.csv';
 
 A = readmatrix(filename);
 figure;

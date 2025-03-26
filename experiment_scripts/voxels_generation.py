@@ -1,3 +1,7 @@
+##############################################################################
+### CODE TO GENERATE GRIDS FOR THE REACHABILITY MAP
+##############################################################################
+
 import numpy as np
 # import matplotlib
 # matplotlib.use('TkAgg')  # or 'Agg' for non-GUI environments
@@ -7,6 +11,8 @@ import math
 from exp_utils import robot_types
 from rm4d.robots import Simulator
 from scipy.spatial.transform import Rotation
+import os
+import pathlib
 
 
 def create_2d_grid(x_min, x_max, y_min, y_max, resolution):
@@ -48,6 +54,9 @@ def world_to_grid(x, y, x_vals, y_vals):
     j = np.argmin(np.abs(y_vals - y))   # find closest y in the grid
     return i, j
 
+# i, j = world_to_grid(0.0, -0.5, x_vals, y_vals)
+# print(i, j)  # might print something like (381, 208)
+# print(grid[381][208])
 
 def generate_random_orientations(n_orientations, seed):
     rng = np.random.default_rng(seed)
@@ -106,7 +115,7 @@ def get_poses_from_positions_and_orientations(valid_positions, z_value, orientat
 
 
 sim = Simulator(with_gui=False)
-robot = robot_types['ur5e'](sim, base_pos=[0, 0, 0.8])
+robot = robot_types['ur5e'](sim)    # base_pos=[0, 0, 0.8]
 
 radius = robot.range_radius
 z_max = robot.range_z
@@ -122,11 +131,17 @@ y_max = radius
 print("Value ranges: [",x_min,",",x_max,"] and [",y_min,",",y_max,"]")
 
 # Set a desired grid resolution (number of grid cells per unit distance)
-# max_error_distance = 0.002886 # Distance from voxel to voxel (maximum distnace in the diagonal to obtain a 5mm error - KPI)
-max_error_distance = 0.02886  # Distance from voxel to voxel (maximum distnace in the diagonal to obtain a 5mm error - KPI)
-max_error = math.sqrt(3)*max_error_distance*1000   # Position error in mm
-grid_resolution = 1/max_error_distance  # This is the number of cells per unit distance (you can adjust this as needed)
+# voxel_distance = 0.002886 # Distance from voxel to voxel (maximum distnace in the diagonal to obtain a 5mm error - KPI)
+voxel_distance = 0.2  # Distance from voxel to voxel (maximum distnace in the diagonal to obtain a 5mm error - KPI)
+max_error = math.sqrt(3)*voxel_distance*1000   # Position error in mm
+grid_resolution = 1/voxel_distance  # This is the number of cells per unit distance (you can adjust this as needed)
 print(f"Max error: {max_error:.2f} mm")
+
+# Calculate the z values to use on the computation
+z_initial = 0
+z_values = np.arange(z_initial, z_max, voxel_distance)
+print(f"Z coordinates of the grid planes: {z_values}.")
+print("Number of Z planes: ",z_values.shape[0])
 
 # Calculate the grid size based on the actual range and grid resolution
 grid_size_x = int(np.ceil((x_max - x_min) * grid_resolution))  # Grid size in x-direction
@@ -134,21 +149,32 @@ grid_size_y = int(np.ceil((y_max - y_min) * grid_resolution))  # Grid size in y-
 print("Grid size:", grid_size_x, " x ", grid_size_y)
 
 # Example usage
-resolution = (x_max - x_min) / 763  # ensures 764 steps
+resolution = (x_max - x_min) / (grid_size_x)  # ensures 764 / 77 / 8 steps
 grid, x_vals, y_vals = create_2d_grid(x_min, x_max, y_min, y_max, resolution)
 filtered_coords, mask = filter_circle_area(grid, radius)
 # print(filtered_coords[0:10])
+
 # Save the reachability maps to a file for future access
-filename1 = f"grid2D_{grid_size_x}.csv"
-np.savetxt(filename1, filtered_coords, delimiter=",")
-filename2 = f"grid2D_{grid_size_x}.npy"
-np.save(filename2, filtered_coords)
-print(f"Grid 2D saved to {filename1} and {filename2}")
+grids_dir = os.path.join('data','grids')
+pathlib.Path(grids_dir).mkdir(parents=True, exist_ok=True)
+grid_npy_fn = os.path.join(grids_dir,f"grid2D_{grid_size_x}.npy")
+grid_csv_fn = os.path.join(grids_dir,f"grid2D_{grid_size_x}.csv")
 
-aaa = np.load('grid2D_77.npy', allow_pickle=True)
-print(aaa.shape[0],aaa.shape[1] )
+# Check if the files already exists and warn before overwriting
+if os.path.exists(grid_npy_fn) or os.path.exists(grid_csv_fn):
+    response = input(f"Warning: {grid_npy_fn} or {grid_csv_fn} already exists. Do you want to overwrite them? (y/n): ")
+    if response.lower() != 'y':
+        print("Files not overwritten.")
+    else:
+        np.save(grid_npy_fn, filtered_coords)
+        np.savetxt(grid_csv_fn, filtered_coords, delimiter=",")
+        print(f"Reachability maps saved to {grid_npy_fn} and {grid_csv_fn}.")
+else:
+    np.save(grid_npy_fn, filtered_coords)
+    np.savetxt(grid_csv_fn, filtered_coords, delimiter=",")
+    print(f"Reachability maps saved to {grid_npy_fn} and {grid_csv_fn}.")
 
-occupancy_map = np.zeros((764, 764), dtype=np.uint8)
+occupancy_map = np.zeros((grid_size_x+1, grid_size_y+1), dtype=np.uint8)
 occupancy_map[mask] = 1  # only mark valid cells
 
 print("Total points in full grid:", grid.shape[0] * grid.shape[1])
@@ -159,8 +185,12 @@ plt.imshow(mask.T, origin='lower', cmap='gray')
 plt.title("Circular Area Mask")
 plt.xlabel("Y index")
 plt.ylabel("X index")
-plt.show()
+plt.show(block=False)
 
+
+##############################################################################
+### CODE TO GENERATE ORIENTATIONS
+##############################################################################
 # orientations = generate_random_orientations(n_orientations=20, seed=42)
 
 # Generate 20 evenly distributed points on the unit sphere
@@ -184,8 +214,10 @@ rot_matrices = np.array(rot_matrices)
 
 # rots, rot_matrices = fibonacci_rotations(samples)
 
-# Apply the rotations to the origin vector (1, 0, 0)
+# Apply the rotations to the origin vector (0, 0, 1)
 rotated_vectors = np.array([rot.apply(origin_vector) for rot in rots])
+print(rotated_vectors[0])
+print(rot_matrices[0])
 
 # Plot the result
 fig = plt.figure()
@@ -196,10 +228,10 @@ ax.scatter(rotated_vectors[:, 0], rotated_vectors[:, 1], rotated_vectors[:, 2], 
 ax.quiver(0, 0, 0, rotated_vectors[:, 0], rotated_vectors[:, 1], rotated_vectors[:, 2], color='b', length=0.8, normalize=True)
 
 ax.set_title("Evenly Distributed Rotated Orientations")
-plt.show()
+plt.show(block=False)
 
-z_value = 0.3
-poses = get_poses_from_positions_and_orientations(filtered_coords, z_value, rot_matrices)
+# z_value = 0.3
+# poses = get_poses_from_positions_and_orientations(filtered_coords, z_value, rot_matrices)
 
 # sim = Simulator(with_gui=True)
 
@@ -213,6 +245,6 @@ poses = get_poses_from_positions_and_orientations(filtered_coords, z_value, rot_
 # Wait for user interaction
 input("Press Enter to close all plots...")
 
-# i, j = world_to_grid(0.0, -0.5, x_vals, y_vals)
-# print(i, j)  # might print something like (381, 208)
-# print(grid[381][208])
+##############################################################################
+##############################################################################
+##############################################################################
