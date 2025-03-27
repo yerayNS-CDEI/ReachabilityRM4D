@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 from scipy.spatial.transform import Rotation
 from tqdm import tqdm
+import math
 
 from rm4d.robots import Simulator
 from rm4d.robots.assets import FRANKA_150_URDF, FRANKA_160_URDF, FRANKA_URDF
@@ -40,6 +41,27 @@ def get_sim_and_robot(robot_type, degrees):
     return sim, robot
 
 
+def fibonacci_sphere(samples=100):
+    """
+    Generate points uniformly distributed on the surface of a sphere using Fibonacci sampling.
+    
+    :param samples: Number of points to sample
+    :returns: (N, 3) array of points on the unit sphere
+    """
+    x = []
+    y = []
+    z = []
+
+    phi = np.pi * (3. - np.sqrt(5.))  # golden angle in radians
+    for i in range(samples):
+        y.append(1 - (i / float(samples - 1)) * 2)  # y goes from 1 to -1
+        radius = np.sqrt(1 - y[i] * y[i])  # radius at y
+        x.append(np.cos(phi * i) * radius)  # x = cos(phi) * radius
+        z.append(np.sin(phi * i) * radius)  # z = sin(phi) * radius
+
+    return np.array(list(zip(x, y, z)))
+
+
 def get_evaluation_pose(max_radius, z_value, n_samples, seed):
     """
     We uniformly sample positions from a cylinder fitted into the space covered by the reachability map. Note that this
@@ -57,8 +79,28 @@ def get_evaluation_pose(max_radius, z_value, n_samples, seed):
     # start from identity matrices
     tfs_ee = np.full((n_samples, 4, 4), np.eye(4))
 
+    # Generate 20 evenly distributed points on the unit sphere
+    samples = n_samples
+    points = fibonacci_sphere(samples)
+
+    # The original vector is the Z-axis (0, 0, 1)
+    origin_vector = np.array([0, 0, 1])
+
+    # We need to create rotations to align `origin_vector` with each of the sampled points
+    rots = []
+    rot_matrices = []
+    for point in points:
+        # The rotation matrix that aligns origin_vector to the point on the sphere
+        # The point is a unit vector, so we can directly treat it as the desired direction
+        rotation = Rotation.align_vectors([point], [origin_vector])[0]  # Align origin_vector to the point
+        rots.append(rotation)
+        rot_matrices.append(rotation.as_matrix())
+
+    rot_matrices = np.array(rot_matrices)
+    
     # first, uniformly sample an orientation (as per scipy documentation)
-    tfs_ee[:, :3, :3] = Rotation.random(num=n_samples, random_state=rng).as_matrix()
+    # tfs_ee[:, :3, :3] = Rotation.random(num=n_samples, random_state=rng).as_matrix()
+    tfs_ee[:, :3, :3] = rot_matrices
 
     # now, we want to uniformly sample the xy position from within a circle, see:
     # https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly/50746409#50746409
@@ -66,12 +108,11 @@ def get_evaluation_pose(max_radius, z_value, n_samples, seed):
     # angles = 2 * np.pi * rng.uniform(0, 1, n_samples)
     # x_pos = radii * np.cos(angles)
     # y_pos = radii * np.sin(angles)
-    x_pos = np.ones(n_samples)*0
-    y_pos = np.ones(n_samples)*0
+    x_pos = np.ones(n_samples)*0.11/math.sqrt(2)
+    y_pos = np.ones(n_samples)*0.11/math.sqrt(2)
     tfs_ee[:, 0, 3] = x_pos
     tfs_ee[:, 1, 3] = y_pos
     # we uniformly sample z, so the 3d position will be uniformly within a cylinder.
-    z_value = 0.1
     tfs_ee[:, 2, 3] = z_value
 
     return tfs_ee
@@ -91,8 +132,8 @@ def evaluate_ik(tfs_ee, sim, robot, threshold, iterations, seed):
     reachable_by_ik = np.zeros(len(tfs_ee), dtype=bool)
 
     for i in tqdm(range(len(tfs_ee))):
-        if i%20 == 0:
-            input("Press Enter to continue...")
+        # if i%20 == 0:
+        #     input("Press Enter to continue...")
         pos, quat = sim.tf_to_pos_quat(tfs_ee[i])
 
         # ik_sln = robot.inverse_kinematics(pos, quat, threshold=threshold, trials=iterations, seed=seed)
@@ -104,7 +145,10 @@ def evaluate_ik(tfs_ee, sim, robot, threshold, iterations, seed):
 
         reachable_by_ik[i] = ik_sln is not None
         # if ik_sln is not None:
-            # input("Press Enter to continue...")
+        #     input("Press Enter to continue...")
+
+        if False:
+            input("Press Enter to continue...")
 
     return reachable_by_ik
 
@@ -125,8 +169,8 @@ def main(args):
     z_max = robot.range_z
     radius = robot.range_radius
 
-    num_samples = 100
-    z_value = 0.1
+    num_samples = 1000
+    z_value = 0.5
     poses = get_evaluation_pose(radius, z_value, num_samples, seed)
 
     print("Joint indices:", robot._arm_joint_ids)

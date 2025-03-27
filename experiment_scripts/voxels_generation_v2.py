@@ -27,10 +27,11 @@ def create_2d_grid(x_min, x_max, y_min, y_max, resolution):
 
 
 def filter_circle_area(grid, radius):
-    rows, cols = grid.shape[:2]
+    # rows, cols = grid.shape[:2]
 
     # Compute center coordinates
-    center = grid[rows // 2, cols // 2]
+    # center = grid[rows // 2, cols // 2]
+    center = [0, 0]
 
     # Vectorized distance check
     dx = grid[:, :, 0] - center[0]
@@ -38,7 +39,6 @@ def filter_circle_area(grid, radius):
     distance_squared = dx**2 + dy**2
 
     mask = distance_squared <= radius**2
-
     filtered_coords = grid[mask]  # shape: (N, 2)
 
     return filtered_coords, mask
@@ -132,7 +132,7 @@ y_max = radius
 print("Value ranges: [",x_min,",",x_max,"] and [",y_min,",",y_max,"]")
 
 # Set a desired grid resolution (number of grid cells per unit distance)
-number_divisions = 11   # Number of voxels in x and y directions
+number_divisions = 22   # Number of voxels in x and y directions
 voxel_distance = (x_max-x_min)/number_divisions # In the axis directions
 max_error = math.sqrt(3)*voxel_distance*1000
 print(f"Max error: {max_error:.2f} mm")
@@ -151,7 +151,7 @@ grid_size_y = number_divisions
 print("Grid size:", grid_size_x, " x ", grid_size_y)
 
 # Example usage
-resolution = (x_max - x_min) / (grid_size_x)
+resolution = (x_max - x_min) / (grid_size_x)    # Same as voxel distance
 grid, x_vals, y_vals = create_2d_grid(x_min, x_max, y_min, y_max, resolution)
 filtered_coords, mask = filter_circle_area(grid, radius)
 print(filtered_coords[0:10])

@@ -1,16 +1,23 @@
 ##############################################################################
-### CODE FOR VISUALIZING COMPLETE REACHABILITY MAPS IN .NPY FILES
+### CODE FOR TRANSFORMING COMPLETE REACHABILITY MAPS IN .NPY TO .CSV
 ##############################################################################
 
+import os
 import numpy as np
 # import matplotlib
 # matplotlib.use('TkAgg')  # or 'Agg' for non-GUI environments
 import matplotlib.pyplot as plt
+from exp_utils import robot_types
+from rm4d.robots import Simulator
 
 # Ensure that the loaded file is a dictionary
-reachability_maps = np.load("data/eval_poses_ur5e/reachability_slice_11_1.2.npy", allow_pickle=True).item()
+filename = "reachability_map_22"
+fn_npy = f"{filename}.npy"
+reachability_map_fn = os.path.join('data','eval_poses_ur5e',fn_npy)
+reachability_map = np.load(reachability_map_fn, allow_pickle=True).item()
+csv_map = []
 
-for z_value, reachability_slice in reachability_maps.items():
+for z_value, reachability_slice in reachability_map.items():
     # Plotting the reachability map
     plt.figure()
     plt.imshow(reachability_slice, cmap='hot', interpolation='nearest')
@@ -19,9 +26,68 @@ for z_value, reachability_slice in reachability_maps.items():
     plt.xlabel('X Index')
     plt.ylabel('Y Index')
     plt.show(block=False)
+    
+    # Extract grid size and resolution
+    parts = filename.split('_')
+    grid_size = int(parts[2])
+    
+    # Simulate the robot setup
+    sim = Simulator(with_gui=False)
+    robot = robot_types['ur5e'](sim)
+    radius = robot.range_radius
+    x_min = -radius
+    x_max = radius
+    y_min = -radius
+    y_max = radius
+    
+    # Calculate resolution and x, y values
+    resolution = (x_max - x_min) / grid_size
+    x_vals = np.linspace(x_min + (resolution / 2), x_max - (resolution / 2), grid_size)
+    y_vals = np.linspace(y_min + (resolution / 2), y_max - (resolution / 2), grid_size)
+
+    # Loop over the reachability slice and store (x, y, z_value, reachability)
+    for i, x in enumerate(x_vals):
+        for j, y in enumerate(y_vals):
+            reachability_value = reachability_slice[i, j]  # The reachability value at (x, y)
+            csv_map.append([x, y, z_value, reachability_value])
+
+# Write the data to a CSV file
+fn_csv = os.path.join('data','eval_poses_ur5e',f"{filename}.csv")
+np.savetxt(fn_csv, csv_map, delimiter=",")
+print(f"Reachability maps saved to {fn_csv}.")
+
 
 # Wait for user interaction before closing all plots
 input("Press Enter to close all plots...")
+
+##############################################################################
+##############################################################################
+##############################################################################
+
+##############################################################################
+### CODE FOR VISUALIZING COMPLETE REACHABILITY MAPS IN .NPY FILES
+##############################################################################
+
+# import numpy as np
+# # import matplotlib
+# # matplotlib.use('TkAgg')  # or 'Agg' for non-GUI environments
+# import matplotlib.pyplot as plt
+
+# # Ensure that the loaded file is a dictionary
+# reachability_maps = np.load("data/eval_poses_ur5e/reachability_map_11.npy", allow_pickle=True).item()
+
+# for z_value, reachability_slice in reachability_maps.items():
+#     # Plotting the reachability map
+#     plt.figure()
+#     plt.imshow(reachability_slice, cmap='hot', interpolation='nearest')
+#     plt.colorbar(label='Reachability')
+#     plt.title(f'Reachability Map at Z = {z_value}')
+#     plt.xlabel('X Index')
+#     plt.ylabel('Y Index')
+#     plt.show(block=False)
+
+# # Wait for user interaction before closing all plots
+# input("Press Enter to close all plots...")
 
 ##############################################################################
 ##############################################################################

@@ -259,7 +259,7 @@ def main(args):
     y_max = radius
     print("Value ranges: [",x_min,",",x_max,"] and [",y_min,",",y_max,"]")
 
-    voxel_distance = 0.2    # IMPORTANT TO BE CHANGED (SAME AS USED IN GRID CREATION)
+    voxel_distance = 0.1    # IMPORTANT TO BE CHANGED (SAME AS USED IN GRID CREATION)
     max_error = math.sqrt(3)*voxel_distance*1000   # Position error in mm
     grid_resolution = 1/voxel_distance
     print(f"Grid resolution: {grid_resolution:.2f}")
