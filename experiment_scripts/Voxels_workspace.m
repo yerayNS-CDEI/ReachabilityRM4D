@@ -1,9 +1,10 @@
 %% REPRESENTATION OF A GRID
-filename = 'data/grids/grid2D_22.csv';
+filename = 'data/grids/ur10e_grid2D_9.csv';
 
 A = readmatrix(filename);
 figure;
-plot(A(:,1),A(:,2),"Marker","o");
+scatter(A(:,1),A(:,2),"Marker","o");
+axis equal;
 hold on;
 plot(0,0,"Marker","x","Color",'r',MarkerSize=15)
 

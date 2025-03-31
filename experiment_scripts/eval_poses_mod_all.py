@@ -159,7 +159,6 @@ def get_poses_from_positions_and_orientations(valid_positions, z_value, orientat
 # plt.show()
 
 
-
 def evaluate_ik(tfs_ee, sim, robot, threshold, iterations, seed):
     """
     Evaluates whether the end-effector poses are reachable by the robot type using Inverse Kinematics.
@@ -259,11 +258,13 @@ def main(args):
     y_max = radius
     print("Value ranges: [",x_min,",",x_max,"] and [",y_min,",",y_max,"]")
 
-    voxel_distance = 0.1    # IMPORTANT TO BE CHANGED (SAME AS USED IN GRID CREATION)
+    number_divisions = 9   # IMPORTANT TO BE CHANGED (SAME AS USED IN GRID CREATION)
+    voxel_distance = (x_max-x_min)/number_divisions # In the axis directions
     max_error = math.sqrt(3)*voxel_distance*1000   # Position error in mm
     grid_resolution = 1/voxel_distance
     print(f"Grid resolution: {grid_resolution:.2f}")
     print(f"Max error: {max_error:.2f} mm")
+    print(f"Number of divisions: {number_divisions}")
 
     grids_dir = os.path.join('data','grids')
 
@@ -323,7 +324,11 @@ def main(args):
 
         # Evaluate reachability using IK
         reachable_by_ik = evaluate_ik(poses, sim, robot, threshold, iterations, seed)
-    
+
+        # Save the reachability slices to a file for future access
+        data_dir = os.path.join('data', f'eval_poses_{robot_name}')
+        pathlib.Path(data_dir).mkdir(parents=True, exist_ok=True)
+
         # Map the x-y positions of the poses to the grid
         for i in range(len(poses)):
             # Scale x and y positions to the grid
@@ -359,8 +364,6 @@ def main(args):
         print(f'{100.0*(num_samples-reachable_by_ik.sum())/num_samples}% determined not reachable.')
 
         # Save the reachability slices to a file for future access
-        data_dir = os.path.join('data', f'eval_poses_{robot_name}')
-        pathlib.Path(data_dir).mkdir(parents=True, exist_ok=True)
         reachability_slices_fn = os.path.join(data_dir,f"reachability_slice_{grid_size_x}_{z_value}.npy")
         
         # Check if the file already exists and warn before overwriting
