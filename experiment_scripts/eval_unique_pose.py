@@ -108,8 +108,8 @@ def get_evaluation_pose(max_radius, z_value, n_samples, seed):
     # angles = 2 * np.pi * rng.uniform(0, 1, n_samples)
     # x_pos = radii * np.cos(angles)
     # y_pos = radii * np.sin(angles)
-    x_pos = np.ones(n_samples)*0.11/math.sqrt(2)
-    y_pos = np.ones(n_samples)*0.11/math.sqrt(2)
+    x_pos = np.ones(n_samples)*1.1
+    y_pos = np.ones(n_samples)*0.5
     tfs_ee[:, 0, 3] = x_pos
     tfs_ee[:, 1, 3] = y_pos
     # we uniformly sample z, so the 3d position will be uniformly within a cylinder.
@@ -152,7 +152,6 @@ def evaluate_ik(tfs_ee, sim, robot, threshold, iterations, seed):
 
     return reachable_by_ik
 
-
 def main(args):
     robot_type = args.robot_type
     degrees = args.degrees
@@ -182,16 +181,15 @@ def main(args):
     
     print("Reachability: ", reachable_by_ik)
     reachability = 0
-    for i in range(num_samples-1):
+    for i in range(num_samples):
         if reachable_by_ik[i]:
                 reachability += 1
     print("Reachable orientations sampled: ", reachability)
 
-    print('completed.')
+    print('Process Completed.')
     print(f'{num_samples} poses sampled')
     print(f'{100.0*reachable_by_ik.sum()/num_samples}% determined reachable.')
     print(f'{100.0*(num_samples-reachable_by_ik.sum())/num_samples}% determined not reachable.')
-
 
 if __name__ == '__main__':
     main(parse_args())

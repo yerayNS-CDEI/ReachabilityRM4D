@@ -1,8 +1,0 @@
-%% 
-filename = 'data/grids/grid2D_22.csv';
-
-A = readmatrix(filename);
-figure;
-plot(A(:,1),A(:,2),"Marker","o");
-hold on;
-plot(0,0,"Marker","x","Color",'r',MarkerSize=15)

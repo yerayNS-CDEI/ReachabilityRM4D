@@ -2,12 +2,13 @@ import os
 import time
 
 from rm4d import ReachabilityMap4D, ZachariasMap, JointSpaceConstructor, Zacharias5DMap
-from rm4d.robots import Franka, UR5E
+from rm4d.robots import Franka, UR5E, UR10E
 from rm4d.robots.assets import FRANKA_150_URDF, FRANKA_160_URDF, FRANKA_URDF, FRANKA_180_URDF
 
 robot_types = {
     'franka': Franka,
     'ur5e': UR5E,
+    'ur10e': UR10E,
 }
 
 map_types = {

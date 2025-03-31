@@ -1,24 +1,37 @@
 import numpy as np
 import pybullet as p
 from .base import RobotBase
-from .assets import UR5E_URDF
+from .assets import UR10E_URDF
 
 
-class UR5E(RobotBase):
+class UR10E(RobotBase):
     def __init__(self, simulator, base_pos=None, base_orn=None):
         super().__init__(simulator, base_pos, base_orn)
-        self._robot_id = self.sim.bullet_client.loadURDF(UR5E_URDF,
+        self._robot_id = self.sim.bullet_client.loadURDF(UR10E_URDF,
                                                          self.base_pos, self.base_orn, useFixedBase=True)
 
-        print("Num joints in model:", self.sim.bullet_client.getNumJoints(self._robot_id))
-        for i in range(self.sim.bullet_client.getNumJoints(self._robot_id)):
+        num_joints = self.sim.bullet_client.getNumJoints(self._robot_id)
+        print("Num joints in model:", num_joints)
+        for i in range(num_joints):
             # print(i, self.sim.bullet_client.getJointInfo(self._robot_id, i)[1])
             info = self.sim.bullet_client.getJointInfo(self.robot_id, i)
-            print(f"Joint {i} - name: {info[1].decode()}, limits: {info[8]} to {info[9]}")
+            print(f"Joint {i} - Name: {info[1].decode()} --> Link: {info[12].decode()}, limits: {info[8]} to {info[9]}")
+
+        end_effector_link_name = "tool0"
+        end_effector_link_index = None
+
+        for i in range(num_joints):
+            joint_info = self.sim.bullet_client.getJointInfo(self.robot_id, i)
+            link_name = joint_info[12].decode("utf-8")
+            if link_name == end_effector_link_name:
+                end_effector_link_index = i
+                break
+
+        print(f"End effector link index: {end_effector_link_index}")
 
         # robot properties
-        self._end_effector_link_id = 6      # index of TCP
-        self._arm_joint_ids = [0, 1, 2, 3, 4, 5]    # movable joints
+        self._end_effector_link_id = end_effector_link_index      # index of TCP
+        self._arm_joint_ids = [2, 3, 4, 5, 6, 7]    # movable joints
         self.home_conf = [1.57, -1.57, 1.57, -1.57, -1.57, 0.0]
 
         # for i in range(self.sim.bullet_client.getNumJoints(self.robot_id)):
@@ -35,11 +48,11 @@ class UR5E(RobotBase):
 
     @property
     def range_radius(self) -> float:
-        return 1.10
+        return 1.35
 
     @property
     def range_z(self) -> float:
-        return 1.25
+        return 1.35
 
     @property
     def end_effector_link_id(self):
@@ -58,19 +71,47 @@ class UR5E(RobotBase):
         return self._joint_limits
 
     def in_self_collision(self):
-        # check self-collision
-        ignore_links = []  # they do not have a collision shape
-        first_links = [0, 1, 2, 3, 4]  # 5 cannot collide with the fingers due to kinematics
+        # # check self-collision
+        # ignore_links = []  # they do not have a collision shape
+        # first_links = [0, 1, 2, 3, 4]  # 5 cannot collide with the fingers due to kinematics
 
-        for first_link in first_links:
-            # skip links that are next to each other (supposed to be in contact) plus all the ignore links
-            check_links = [link for link in np.arange(first_link + 2, self.end_effector_link_id + 1) if
-                           link not in ignore_links]
-            for check_link in check_links:
-                collision = self.sim.links_in_collision(self.robot_id, first_link, self.robot_id, check_link)
-                if collision:
+        # for first_link in first_links:
+        #     # skip links that are next to each other (supposed to be in contact) plus all the ignore links
+        #     check_links = [link for link in np.arange(first_link + 2, self.end_effector_link_id + 1) if
+        #                    link not in ignore_links]
+        #     for check_link in check_links:
+        #         collision = self.sim.links_in_collision(self.robot_id, first_link, self.robot_id, check_link)
+        #         if collision:
+        #             return True
+        # return False
+
+        collision_links = [2, 3, 4, 5, 6, 7]
+
+        for i, link_a in enumerate(collision_links):
+            for link_b in collision_links[i + 1:]:
+                if abs(link_a - link_b) == 1:
+                    continue  # saltar vecinos directos
+                if self.sim.links_in_collision(self.robot_id, link_a, self.robot_id, link_b):
+                    # name_a = self.sim.bullet_client.getJointInfo(self.robot_id, link_a)[12].decode()
+                    # name_b = self.sim.bullet_client.getJointInfo(self.robot_id, link_b)[12].decode()
+                    # print(f"[Collision] Detected between link {link_a} ({name_a}) and link {link_b} ({name_b})")
+                    # input("Press Enter to continue...")
                     return True
         return False
+
+        # # If the robot changes the collision links can be detected automatically
+        # collision_links = [
+        #     i for i in range(self.sim.bullet_client.getNumJoints(self.robot_id))
+        #     if self.sim.bullet_client.getCollisionShapeData(self.robot_id, i)
+        # ]
+
+        # for i, link_a in enumerate(collision_links):
+        #     for link_b in collision_links[i + 1:]:
+        #         if abs(link_a - link_b) == 1:
+        #             continue  # skip neighbors
+        #         if self.sim.links_in_collision(self.robot_id, link_a, self.robot_id, link_b):
+        #             return True
+        # return False
 
     def _do_inverse_kinematics(self, pos, quat, start_q, rest_q, n_iterations, threshold):
         self.reset_joint_pos(start_q)
@@ -109,8 +150,8 @@ class UR5E(RobotBase):
             maxNumIterations=n_iterations, residualThreshold=threshold)
         # full_joint_positions = self.sim.bullet_client.calculateInverseKinematics(
         #     self.robot_id, self.end_effector_link_id, pos, quat)
-        
+
         # print("Returned IK length:", len(full_joint_positions))
         # print("arm_joint_ids:", self.arm_joint_ids)
-
-        return np.array(full_joint_positions)[self.arm_joint_ids]
+        
+        return np.array(full_joint_positions)

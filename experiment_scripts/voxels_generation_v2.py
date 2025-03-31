@@ -115,13 +115,14 @@ def get_poses_from_positions_and_orientations(valid_positions, z_value, orientat
     return tfs_ee
 
 
-sim = Simulator(with_gui=False)
-robot = robot_types['ur5e'](sim)    # base_pos=[0, 0, 0.8]
+sim = Simulator(with_gui=True)
+robot = robot_types['ur10e'](sim)    # base_pos=[0, 0, 0.8]
 
+robot_name = 'ur10e'
 radius = robot.range_radius
 z_max = robot.range_z
 
-print("Robot name: ur5e")
+print("Robot name: ",robot_name)
 print("Robot radius: ", radius)
 print("Robot altitude: ", z_max)
 
@@ -132,7 +133,7 @@ y_max = radius
 print("Value ranges: [",x_min,",",x_max,"] and [",y_min,",",y_max,"]")
 
 # Set a desired grid resolution (number of grid cells per unit distance)
-number_divisions = 22   # Number of voxels in x and y directions
+number_divisions = 9   # Number of voxels in x and y directions
 voxel_distance = (x_max-x_min)/number_divisions # In the axis directions
 max_error = math.sqrt(3)*voxel_distance*1000
 print(f"Max error: {max_error:.2f} mm")
@@ -162,8 +163,8 @@ print("grid shape: ",grid.shape[1])
 # Save the reachability maps to a file for future access
 grids_dir = os.path.join('data','grids')
 pathlib.Path(grids_dir).mkdir(parents=True, exist_ok=True)
-grid_npy_fn = os.path.join(grids_dir,f"grid2D_{grid_size_x}.npy")
-grid_csv_fn = os.path.join(grids_dir,f"grid2D_{grid_size_x}.csv")
+grid_npy_fn = os.path.join(grids_dir,f"{robot_name}_grid2D_{grid_size_x}.npy")
+grid_csv_fn = os.path.join(grids_dir,f"{robot_name}_grid2D_{grid_size_x}.csv")
 
 # Check if the files already exists and warn before overwriting
 if os.path.exists(grid_npy_fn) or os.path.exists(grid_csv_fn):
