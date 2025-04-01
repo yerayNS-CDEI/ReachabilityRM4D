@@ -114,11 +114,10 @@ def get_poses_from_positions_and_orientations(valid_positions, z_value, orientat
 
     return tfs_ee
 
-
-sim = Simulator(with_gui=True)
-robot = robot_types['ur10e'](sim)    # base_pos=[0, 0, 0.8]
-
 robot_name = 'ur10e'
+sim = Simulator(with_gui=True)
+robot = robot_types[robot_name](sim)    # base_pos=[0, 0, 0.8]
+
 radius = robot.range_radius
 z_max = robot.range_z
 
@@ -133,7 +132,7 @@ y_max = radius
 print("Value ranges: [",x_min,",",x_max,"] and [",y_min,",",y_max,"]")
 
 # Set a desired grid resolution (number of grid cells per unit distance)
-number_divisions = 9   # Number of voxels in x and y directions
+number_divisions = 25   # Number of voxels in x and y directions
 voxel_distance = (x_max-x_min)/number_divisions # In the axis directions
 max_error = math.sqrt(3)*voxel_distance*1000
 print(f"Max error: {max_error:.2f} mm")
