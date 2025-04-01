@@ -182,6 +182,43 @@ def evaluate_ik(tfs_ee, sim, robot, threshold, iterations, seed):
 
     return reachable_by_ik
 
+def evaluate_ik_dexterity(tfs_ee, sim, robot, threshold, iterations, seed):
+    """
+    Evaluates whether the end-effector poses are reachable by the robot type using Inverse Kinematics.
+    :param tfs_ee: ndarray (n, 4, 4), TCP poses
+    :param sim: Simulator instance
+    :param robot: RobotBase instance
+    :param threshold: int, mm/deg threshold for IK
+    :param iterations: int, number of trials for IK
+    :param seed: int, random seed used for IK
+    :return: bool ndarray (n,), true if reachable, false if not
+    """
+    reachable_by_ik = np.zeros(len(tfs_ee), dtype=bool)
+    dexterity = np.zeros(len(tfs_ee))
+
+    for i in tqdm(range(len(tfs_ee))):
+        pos, quat = sim.tf_to_pos_quat(tfs_ee[i])
+        ik_sln = robot.inverse_kinematics(pos, quat, threshold=threshold, trials=iterations, seed=seed)
+        reachable_by_ik[i] = ik_sln is not None
+
+        if ik_sln is not None:
+            num_joints = len(ik_sln)
+            jacobian_lin, jacobian_ang = sim.bullet_client.calculateJacobian(
+                bodyUniqueId=robot.robot_id,
+                linkIndex=robot.end_effector_link_id,
+                localPosition=(0, 0, 0),
+                objPositions=ik_sln,
+                objVelocities=[0.0] * num_joints,
+                objAccelerations=[0.0] * num_joints
+            )
+            jacobian = np.vstack((jacobian_lin, jacobian_ang))
+            JJT = jacobian @ jacobian.T
+            trace_JJT = np.trace(JJT)
+            trace_inv_JJT = np.trace(np.linalg.pinv(JJT))
+            dexterity[i] = dexterity[i] = np.sqrt(trace_JJT) * np.sqrt(trace_inv_JJT)
+
+    return reachable_by_ik, dexterity
+
 def fibonacci_sphere(samples=100):
     """
     Generate points uniformly distributed on the surface of a sphere using Fibonacci sampling.
@@ -258,7 +295,7 @@ def main(args):
     y_max = radius
     print("Value ranges: [",x_min,",",x_max,"] and [",y_min,",",y_max,"]")
 
-    number_divisions = 9   # IMPORTANT TO BE CHANGED (SAME AS USED IN GRID CREATION)
+    number_divisions = 27   # IMPORTANT TO BE CHANGED (SAME AS USED IN GRID CREATION)
     voxel_distance = (x_max-x_min)/number_divisions # In the axis directions
     max_error = math.sqrt(3)*voxel_distance*1000   # Position error in mm
     grid_resolution = 1/voxel_distance
@@ -270,6 +307,7 @@ def main(args):
 
     # Get a list of .npy files in the directory
     npy_files = [f for f in os.listdir(grids_dir) if f.endswith('.npy')]
+    npy_files.sort()
 
     # Check if there are any .npy files in the directory
     if not npy_files:
@@ -324,6 +362,7 @@ def main(args):
 
         # Evaluate reachability using IK
         reachable_by_ik = evaluate_ik(poses, sim, robot, threshold, iterations, seed)
+        # reachable_by_ik, dexterity = evaluate_ik_dexterity(poses, sim, robot, threshold, iterations, seed)
 
         # Save the reachability slices to a file for future access
         data_dir = os.path.join('data', f'eval_poses_{robot_name}')
@@ -372,10 +411,10 @@ def main(args):
             if response.lower() != 'y':
                 print("File not overwritten.")
             else:
-                np.save(reachability_slices_fn, reachability_map)
+                np.save(reachability_slices_fn, reachability_slice)
                 print(f"Reachability maps saved to {reachability_slices_fn}.")
         else:
-            np.save(reachability_slices_fn, reachability_map)
+            np.save(reachability_slices_fn, reachability_slice)
             print(f"Reachability maps saved to {reachability_slices_fn}.")
 
     sim.disconnect()

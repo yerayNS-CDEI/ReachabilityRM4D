@@ -108,8 +108,8 @@ def get_evaluation_pose(max_radius, z_value, n_samples, seed):
     # angles = 2 * np.pi * rng.uniform(0, 1, n_samples)
     # x_pos = radii * np.cos(angles)
     # y_pos = radii * np.sin(angles)
-    x_pos = np.ones(n_samples)*1.1
-    y_pos = np.ones(n_samples)*0.5
+    x_pos = np.ones(n_samples)*1.5
+    y_pos = np.ones(n_samples)*0.0
     tfs_ee[:, 0, 3] = x_pos
     tfs_ee[:, 1, 3] = y_pos
     # we uniformly sample z, so the 3d position will be uniformly within a cylinder.
@@ -168,8 +168,10 @@ def main(args):
     z_max = robot.range_z
     radius = robot.range_radius
 
+    print(f"Robot name: {robot_name}.")
+    print(f"Radius: {radius}.")
     num_samples = 1000
-    z_value = 0.5
+    z_value = 0.2
     poses = get_evaluation_pose(radius, z_value, num_samples, seed)
 
     print("Joint indices:", robot._arm_joint_ids)
