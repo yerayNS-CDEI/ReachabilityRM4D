@@ -108,7 +108,7 @@ def get_evaluation_pose(max_radius, z_value, n_samples, seed):
     # angles = 2 * np.pi * rng.uniform(0, 1, n_samples)
     # x_pos = radii * np.cos(angles)
     # y_pos = radii * np.sin(angles)
-    x_pos = np.ones(n_samples)*1.5
+    x_pos = np.ones(n_samples)*1.35
     y_pos = np.ones(n_samples)*0.0
     tfs_ee[:, 0, 3] = x_pos
     tfs_ee[:, 1, 3] = y_pos

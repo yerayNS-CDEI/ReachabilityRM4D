@@ -48,11 +48,11 @@ class UR10E(RobotBase):
 
     @property
     def range_radius(self) -> float:
-        return 1.35
+        return 1.35     # it should be 1.4 to be more than the actual reach
 
     @property
     def range_z(self) -> float:
-        return 1.35
+        return 1.35     # it should be 1.4 to be more than the actual reach
 
     @property
     def end_effector_link_id(self):
