@@ -1,5 +1,5 @@
 %% REPRESENTATION OF A GRID
-filename = 'data/grids/ur10e_grid2D_22.csv';
+filename = 'data/grids/ur10e_grid2D_27.csv';
 
 A = readmatrix(filename);
 figure;
@@ -33,9 +33,8 @@ colormap('turbo(20)');  % You can replace 'jet' with any other colormap like 'pa
 colorbar;  % Optional: to show a color scale
 axis equal
 alpha = 0.5;
-% set(h, 'MarkerEdgeAlpha', alpha, 'MarkerFaceAlpha', alpha)    # activate just when checking, it takes a lot of resources
+% set(h, 'MarkerEdgeAlpha', alpha, 'MarkerFaceAlpha', alpha)    # activate only when checking, it takes a lot of resources
 
-%% REPRESENTATION OF A GRID
 
 
 

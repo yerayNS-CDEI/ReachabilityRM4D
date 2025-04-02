@@ -198,6 +198,53 @@ plt.show(block=False)
 ##############################################################################
 # # orientations = generate_random_orientations(n_orientations=20, seed=42)
 
+# import numpy as np
+# # import matplotlib
+# # matplotlib.use('TkAgg')  # or 'Agg' for non-GUI environments
+# import matplotlib.pyplot as plt
+# import math
+
+# from exp_utils import robot_types
+# from rm4d.robots import Simulator
+# from scipy.spatial.transform import Rotation
+# import os
+# import pathlib
+
+# def world_to_grid(x, y, x_vals, y_vals):
+#     """
+#     Converts real-world coordinates (like x = 0.35, y = -0.62) into 
+#     their corresponding grid indices (i, j) in the 2D array.
+#     x,y: real-world coordinates
+#     x_vals,y_vals: 1D arrays of grid coordinates along x and y (create_2d_grid)
+#     """
+#     i = np.argmin(np.abs(x_vals - x))   # find closest x in the grid
+#     j = np.argmin(np.abs(y_vals - y))   # find closest y in the grid
+#     return i, j
+
+# # i, j = world_to_grid(0.0, -0.5, x_vals, y_vals)
+# # print(i, j)  # might print something like (381, 208)
+# # print(grid[381][208])
+
+# def fibonacci_sphere(samples=100):
+#     """
+#     Generate points uniformly distributed on the surface of a sphere using Fibonacci sampling.
+    
+#     :param samples: Number of points to sample
+#     :returns: (N, 3) array of points on the unit sphere
+#     """
+#     x = []
+#     y = []
+#     z = []
+
+#     phi = np.pi * (3. - np.sqrt(5.))  # golden angle in radians
+#     for i in range(samples):
+#         y.append(1 - (i / float(samples - 1)) * 2)  # y goes from 1 to -1
+#         radius = np.sqrt(1 - y[i] * y[i])  # radius at y
+#         x.append(np.cos(phi * i) * radius)  # x = cos(phi) * radius
+#         z.append(np.sin(phi * i) * radius)  # z = sin(phi) * radius
+
+#     return np.array(list(zip(x, y, z)))
+
 # # Generate 20 evenly distributed points on the unit sphere
 # samples = 20
 # points = fibonacci_sphere(samples)
@@ -234,18 +281,6 @@ plt.show(block=False)
 
 # ax.set_title("Evenly Distributed Rotated Orientations")
 # plt.show(block=False)
-
-# # z_value = 0.3
-# # poses = get_poses_from_positions_and_orientations(filtered_coords, z_value, rot_matrices)
-
-# # sim = Simulator(with_gui=True)
-
-# # for i in range(10):
-# #     print([poses[i*20+1,0,3],poses[i*20+1,1,3],z_value])
-# #     sim.add_sphere([poses[i*20+1,0,3],poses[i*20+1,1,3],z_value], 0.005, [255,0,0,1.0])
-# #     # Wait for user interaction
-# #     input("Press Enter to close all plots...")
-# # sim.add_sphere([-1.097116644823067, -0.027391874180864972, 0.3], 0.005, [255,0,0,1.0])
 
 # # Wait for user interaction
 # input("Press Enter to close all plots...")
