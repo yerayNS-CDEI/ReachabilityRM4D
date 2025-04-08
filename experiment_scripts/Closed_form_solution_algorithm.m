@@ -382,68 +382,290 @@ Send = 5;   % End state
 %     current_state = S1;   
 % end
 
+% Joint variables for the computed solutions
+q1 = [];
+q2 = [];
+q3 = [];
+q4 = [];
+q5 = [];
+q6 = [];
+Z = [];     % complete solution set
+
+% Variables to indicate if the angles have been changed from the initial selection
+ch1 = 0;
+ch3 = 0;
+ch5 = 0;
+
+v_end = 0;
+q_current = [0, 0, 0, 0, 0, 0];
 current_state = S1;   
-% switch to new state based on the value state register
-switch (current_state) 
+while (v_end == 0)
+    % switch to new state based on the value state register
+    switch (current_state) 
+        
+        case S1     % q1 computed and verified
+            A = py-vd6*r23;
+            B = px-vd6*r13;
+            q1_1 = atan2(sqrt(B^2+(-A)^2-vd4^2),vd4)+atan2(B,-A);
+            q1_2 = -atan2(sqrt(B^2+(-A)^2-vd4^2),vd4)+atan2(B,-A);
+            % Checking valid values of q1 (result inside sqrt != imginary)
+            if isreal(q1_1)
+                q1 = [q1, q1_1];
+            end
+            if isreal(q1_2) 
+                q1 = [q1, q1_2];
+            end
+            if size(q1,2) == 0      % q1 not ok
+                Z = [];
+                current_state = Send;
+            elseif size(q1,2) == 2      % q1 ok (but 2 results ok)
+                [M, idx] = min(abs(q_current(1)-q1));
+                q1 = [q1(idx) q1(size(q1,2)-idx+1)];    % ordered list (w.r.t. distance to current q1)
+                current_state = S5;
+            else    % q1 ok (but only 1 result ok, same as size(q1,2) == 1)
+                current_state = S5;
+            end
     
-    case S1     % q1 computed and verified
-        A = py-vd6*r23;
-        B = px-vd6*r13;
-        q1_1 = atan2(sqrt(B^2+(-A)^2-vd4^2),vd4)+atan2(B,-A);
-        q1_2 = -atan2(sqrt(B^2+(-A)^2-vd4^2),vd4)+atan2(B,-A);
-        % Checking valid values of q1 (result inside sqrt != imginary)
-        if isreal(q1_1)
-            q1 = [q1, q1_1];
-        elseif isreal(q1_2) 
-            q1 = [q1, q1_2];
-        else
-            Z = [];
-            current_state = Send;
-            return
-        end
-        [M, idx] = min(q_current(1)-q1);
-        Z(1) = q1(idx);
-        current_state = S5;
-    case S2
+        case S5     % q5 computed and verified
+            
+            q1_i = q1(1);
+            C = sin(q1_i)*r11-cos(q1_i)*r21;
+            D = cos(q1_i)*r22-sin(q1_i)*r12;
+            q5_1 = atan2(sqrt(C^2+D^2),sin(q1_i)*r13-cos(q1_i)*r23);
+            q5_2 = -atan2(sqrt(C^2+D^2),sin(q1_i)*r13-cos(q1_i)*r23);
+            % Checking valid values of q5 (real and |s5|>1e-12)
+            if isreal(q5_1) && (abs(sin(q5_1))>1e-12)   % q5 ok (same as size(q5,2) == 2)
+                q5 = [q5, q5_1];
+                q5 = [q5, q5_2];
+                [M, idx] = min(abs(q_current(5)-q5));
+                q5 = [q5(idx) q5(size(q5,2)-idx+1)];    % ordered list (w.r.t. distance to current q5)
+                current_state = S6;
+            else    % same as size(q5,2) == 0
+                if ch1 == 0 && size(q1,2) == 2      % q5 not ok, ch1 = 0
+                    ch1 = 1;
+                    q1 = q1(2:end);
+                    current_state = S5;
+                else        % q5 not ok, ch1 = 1
+                    Z = [];
+                    current_state = Send;
+                end
+            end        
+            
+        case S6
+            
+            q1_i = q1(1);
+            q5_i = q5(1);
+            C = sin(q1_i)*r11-cos(q1_i)*r21;
+            D = cos(q1_i)*r22-sin(q1_i)*r12;
+            q6_i = atan2(D/sin(q5_i),C/sin(q5_i));
+            q6 = q6_i;
+            current_state = S3;        
+            
+        case S3
+            
+            q1_i = q1(1);
+            q5_i = q5(1);
+            q6_i = q6(1);
+            E = cos(q1_i)*r11+sin(q1_i)*r21;
+            F = cos(q5_i)*cos(q6_i);
+            qaux_i = atan2(r31*F-sin(q6_i)*E,F*E+sin(q6_i)*r31);  % q234
+            PC_i = cos(q1_i)*px+sin(q1_i)*py-sin(qaux_i)*vd5+cos(qaux_i)*sin(q5_i)*vd6;
+            PS_i = pz-vd1+cos(qaux_i)*vd5+sin(qaux_i)*sin(q5_i)*vd6;
+            q3_1 = atan2(sqrt(1-((PS_i^2+PC_i^2-va2^2-va3^2)/(2*va2*va3))^2),(PS_i^2+PC_i^2-va2^2-va3^2)/(2*va2*va3));
+            q3_2 = -atan2(sqrt(1-((PS_i^2+PC_i^2-va2^2-va3^2)/(2*va2*va3))^2),(PS_i^2+PC_i^2-va2^2-va3^2)/(2*va2*va3));
+            % Checking valid values of q3 (real and |s3|>1e-12)
+            if isreal(q3_1) && (abs(sin(q3_1))>1e-12)   % q3 ok
+                q3 = [q3, q3_1];
+                q3 = [q3, q3_2];
+                [M, idx] = min(abs(q_current(3)-q3));
+                q3 = [q3(idx) q3(size(q3,2)-idx+1)];    % ordered list (w.r.t. distance to current q3)
+                current_state = S24;
+            else
+                if ch5 == 0     % q3 not ok, ch5 = 0
+                    ch5 = 1;
+                    q5 = q5(2:end);
+                    current_state = S6;
+                elseif ch1 == 0 && size(q1,2) == 2      % q3 not ok, ch5 = 1, ch1 = 0
+                    ch1 = 1;
+                    ch5 = 0;
+                    q1 = q1(2:end);
+                    q5 = [];
+                    current_state = S5;
+                else    % q3 not ok, ch1 = 1, ch5 = 1
+                    Z = [];
+                    current_state = Send;
+                end
+            end
         
-        if (A)
-            Z = false;
-            current_state = S3;
-        else
-            Z = true;
-            current_state = S2;
-        end
-        
-    case S3
-        
-        if (A)
-            Z = false;            
-            current_state = S4;
-        else
-            Z = true;            
-            current_state = S1;
-        end
-        
-    case S4
-        
-        if (A)
-            Z = true;
-            current_state = S1;
-        else
-            Z = false;            
-            current_state = S3;
-        end        
-        
-    otherwise
-        
-        Z = false;
-end
-% end
-% MATLAB Test Bench
-for i = 1:100
-    if mod(i,2) == 0
-        val = mlhdlc_fsm_mealy(true);
-    else
-        val = mlhdlc_fsm_mealy(false);
+        case S24
+    
+            q1_i = q1(1);
+            q3_i = q3(1);
+            q5_i = q5(1);
+            q6_i = q6(1);
+            q2_i = atan2(PS_i,PC_i)-atan2(sin(q3_i)*va3,cos(q3_i)*va3+va2);
+            q4_i = qaux_i-q2_i-q3_i;
+            condition = vd5*sin(qaux_i)+va2*cos(q2_i)+va3*cos(q2_i+q3_i);
+            if abs(condition) > 1e-9    % q2,q4 ok
+                Z = [q1_i,q2_i,q3_i,q4_i,q5_i,q6_i];
+                current_state = Send;
+            else    
+                if ch3 == 0     % q2 q4 not ok, ch3 = 0
+                    ch3 = 1;
+                    q3 = q3(2:end);
+                    current_state = S24;
+                elseif ch5 == 0     % q2 q4 not ok, ch3 = 1, ch5 = 0
+                    ch5 = 1;
+                    q5 = q5(2:end);
+                    current_state = S6;
+                elseif ch1 == 0 && size(q1,2) == 2  % q2 q4 not ok, ch3 = 1, ch5 = 1, ch1 = 0
+                    ch1 = 1;
+                    ch5 = 0;
+                    q1 = q1(2:end);
+                    q5 = [];
+                    current_state = S5;
+                else        % q2 q4 not ok, ch1 = 1, ch3 = 1, ch5 = 1
+                    Z = [];
+                    current_state = Send;
+                end
+            end
+    
+        case Send
+            
+            v_end = 1;
+            if size(Z,2) == 0
+                disp('Algorithm finished and found no solution!!')
+            else
+                disp('Algorithm finished with solution:')
+                disp(Z)
+            end
+            
+        otherwise
+            
+            disp('There is an error in the state selection or the algorithm is wrong!!')
+            
     end
 end
+
+
+% % MATLAB Test Bench
+% for i = 1:100
+%     if mod(i,2) == 0
+%         val = mlhdlc_fsm_mealy(true);
+%     else
+%         val = mlhdlc_fsm_mealy(false);
+%     end
+% end
+
+
+%% Smooth Orientation Interpolation
+
+% Define the start and goal rotation matrices
+start_rotation_matrix = rotx(30) * roty(45) * rotz(60);  % Rotation matrix from Euler angles
+goal_rotation_matrix = rotx(100) * roty(150) * rotz(200);  % Another rotation matrix
+
+% Convert the rotation matrices to quaternions
+start_orientation = quaternion(start_rotation_matrix,"rotmat","point"); % "frame", "point"
+goal_orientation = quaternion(goal_rotation_matrix,"rotmat","point");
+
+% Number of interpolations to generate
+num_interpolations = 20;
+
+% Pre-allocate array for the interpolated rotation matrices
+interpolated_rotation_matrices = zeros(3, 3, num_interpolations);
+interpolated_euler_angles = zeros(num_interpolations, 3);
+
+% Loop through and generate the interpolated quaternions and their corresponding matrices
+for i = 1:num_interpolations
+    % Calculate interpolation factor t (ranging from 0 to 1)
+    t = (i-1) / (num_interpolations - 1);
+    
+    % Smooth interpolation using slerp between the quaternions
+    interpolated_orientation = slerp(start_orientation, goal_orientation, t);
+    
+    % Convert the interpolated quaternion back to a rotation matrix
+    interpolated_rotation_matrix = quat2rotm(interpolated_orientation);
+    
+    % Store the result in the pre-allocated array
+    interpolated_rotation_matrices(:, :, i) = interpolated_rotation_matrix;
+    
+    % Optionally, convert the interpolated quaternion back to Euler angles for visualization
+    euler_angles = eulerd(interpolated_orientation, 'ZYX', 'frame');
+    interpolated_euler_angles(i, :) = euler_angles;
+end
+
+% Display the results
+disp('Interpolated Rotation Matrices (20 interpolations):');
+disp(interpolated_rotation_matrices);
+
+disp('Interpolated Euler Angles (degrees):');
+disp(interpolated_euler_angles);
+
+%% Plotting Orientations
+
+% Plot configuration
+UR5.plot([0 0 0 0 0 0])
+
+% Rotation matrices
+orig_orientation = [   0.1830   -0.2709    0.9451    0.2276;
+                        0.1830    0.9539    0.2380    0.0150;
+                       -0.9659    0.1294    0.2241   -0.3651;
+                             0         0         0    1.0000];
+start_orientation = [  -0.5003    0.1601    0.8509    0.2276;
+                        0.7537   -0.4032    0.5190    0.0150;
+                        0.4262    0.9010    0.0810   -0.3651;
+                             0         0         0    1.0000];
+goal_orientation = [   0.3407    0.6107   -0.7149    0.2276;
+                       -0.5767    0.7362    0.3541    0.0150;
+                        0.7425    0.2917    0.6030   -0.3651
+                             0         0         0    1.0000];
+interp_orientation = [  -0.5497    0.8335   -0.0554   0.2276;
+                         -0.1522   -0.0347    0.9877    0.0150;
+                        0.8214    0.5514    0.1459   -0.3651
+                             0         0         0    1.0000];
+% [   0.1830   -0.2709    0.9451    0.2276;
+%     0.1830    0.9539    0.2380    0.0150;
+%    -0.9659    0.1294    0.2241   -0.3651;
+%          0         0         0    1.0000];
+% 
+% [  -0.5003    0.1601    0.8509    0.2276;
+%     0.7537   -0.4032    0.5190    0.0150;
+%     0.4262    0.9010    0.0810   -0.3651;
+%          0         0         0    1.0000];
+% 
+% 
+% [   0.3407    0.6107   -0.7149    0.2276;
+%    -0.5767    0.7362    0.3541    0.0150;
+%     0.7425    0.2917    0.6030   -0.3651
+%          0         0         0    1.0000];
+
+
+%%
+q_current = [0 0 0 0 0 0];
+y = closed_form_algorithm(goal_orientation, q_current, 1)
+
+% orig orientation --> 2.2948    0.5670    1.5791    0.5314   -0.5244    2.1129
+% start orientation --> 2.2163    0.4793    1.6252    0.3425   -0.1270   -2.0091
+% goal orientation --> 0.3413    1.1934    1.4916   -0.3702   -2.1809   -2.5018
+% interp orientation --> 2.2190    0.3740    1.6921   -0.1266   -0.1571   -1.9997
+
+% orig orientation --> 
+% start orientation --> 0.5771    1.0315    1.6025   -5.6945    1.5415   -2.7022
+% goal orientation --> 0.3413    1.4363    1.6578   -3.9209    2.1809    0.6398
+% interp orientation --> 0.1912    1.3577    1.4869   -5.1556    2.9426   -1.3413
+
+q_exemple = [[0.5771    1.0315    1.6025   -5.6945    1.5415   -2.7022];
+            [0.3413    1.4363    1.6578   -3.9209    2.1809    0.6398];
+            [0.1912    1.3577    1.4869   -5.1556    2.9426   -1.3413]];
+i=1;
+while(true)
+    UR5.plot(q_exemple(i,:))
+    i = i+1;
+    if i == 4
+        i = 1;
+    end
+    pause(1)
+end
+
+
+
