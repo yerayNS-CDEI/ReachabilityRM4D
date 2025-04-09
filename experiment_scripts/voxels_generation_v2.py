@@ -59,6 +59,16 @@ def world_to_grid(x, y, x_vals, y_vals):
 # print(i, j)  # might print something like (381, 208)
 # print(grid[381][208])
 
+def grid_to_world(i, j, x_vals, y_vals):
+    """
+    Converts grid indices (i, j) into their corresponding real-world coordinates (x, y).
+    i, j: grid indices
+    x_vals, y_vals: 1D arrays of grid coordinates along x and y (create_2d_grid)
+    """
+    x = x_vals[i]  # Get the x-coordinate from the grid
+    y = y_vals[j]  # Get the y-coordinate from the grid
+    return x, y
+
 def generate_random_orientations(n_orientations, seed):
     rng = np.random.default_rng(seed)
     rotations = Rotation.random(n_orientations, random_state=rng)
