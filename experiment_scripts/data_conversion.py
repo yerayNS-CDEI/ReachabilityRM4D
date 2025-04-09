@@ -150,7 +150,8 @@ reachability = filtered_map[:, 3]
 # Plotting the reachability map
 fig = plt.figure()
 ax = plt.axes(projection='3d')
-scatter = ax.scatter(reach_y, reach_x, reach_z, c=reachability, cmap='viridis', marker='o', s=50)# plt.figure()
+scatter = ax.scatter(reach_y, reach_x, reach_z, c=reachability, cmap='viridis', marker='o', s=50)
+# plt.figure()
 # plt.imshow(reachability_slice, cmap='hot', interpolation='nearest')
 # plt.colorbar(label='Reachability')
 ax.set_title("Reachability Map")
@@ -277,68 +278,68 @@ plt.show(block=False)
 ### CODE FOR VISUALIZING EVENLY SAMPLED ORIENTATIONS
 ##############################################################################
 
-# import matplotlib
-# matplotlib.use('TkAgg')  # or 'Agg' for non-GUI environments
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from scipy.spatial.transform import Rotation
-import numpy as np
+# # import matplotlib
+# # matplotlib.use('TkAgg')  # or 'Agg' for non-GUI environments
+# import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
+# from scipy.spatial.transform import Rotation
+# import numpy as np
 
-def fibonacci_sphere(samples=100):
-    """
-    Generate points uniformly distributed on the surface of a sphere using Fibonacci sampling.
+# def fibonacci_sphere(samples=100):
+#     """
+#     Generate points uniformly distributed on the surface of a sphere using Fibonacci sampling.
     
-    :param samples: Number of points to sample
-    :returns: (N, 3) array of points on the unit sphere
-    """
-    x = []
-    y = []
-    z = []
+#     :param samples: Number of points to sample
+#     :returns: (N, 3) array of points on the unit sphere
+#     """
+#     x = []
+#     y = []
+#     z = []
 
-    phi = np.pi * (3. - np.sqrt(5.))  # golden angle in radians
-    for i in range(samples):
-        y.append(1 - (i / float(samples - 1)) * 2)  # y goes from 1 to -1
-        radius = np.sqrt(1 - y[i] * y[i])  # radius at y
-        x.append(np.cos(phi * i) * radius)  # x = cos(phi) * radius
-        z.append(np.sin(phi * i) * radius)  # z = sin(phi) * radius
+#     phi = np.pi * (3. - np.sqrt(5.))  # golden angle in radians
+#     for i in range(samples):
+#         y.append(1 - (i / float(samples - 1)) * 2)  # y goes from 1 to -1
+#         radius = np.sqrt(1 - y[i] * y[i])  # radius at y
+#         x.append(np.cos(phi * i) * radius)  # x = cos(phi) * radius
+#         z.append(np.sin(phi * i) * radius)  # z = sin(phi) * radius
 
-    return np.array(list(zip(x, y, z)))
+#     return np.array(list(zip(x, y, z)))
 
-# Generate 20 evenly distributed points on the unit sphere
-samples = 20
-points = fibonacci_sphere(samples)
+# # Generate 20 evenly distributed points on the unit sphere
+# samples = 20
+# points = fibonacci_sphere(samples)
 
-# The original vector is the X-axis (1, 0, 0)
-origin_vector = np.array([0, 0, 1])
+# # The original vector is the X-axis (1, 0, 0)
+# origin_vector = np.array([0, 0, 1])
 
-# We need to create rotations to align `origin_vector` with each of the sampled points
-rots = []
-rot_matrices = []
-for point in points:
-    # The rotation matrix that aligns origin_vector to the point on the sphere
-    # The point is a unit vector, so we can directly treat it as the desired direction
-    rotation = Rotation.align_vectors([point], [origin_vector])[0]  # Align origin_vector to the point
-    rots.append(rotation)
-    rot_matrices.append(rotation.as_matrix())
+# # We need to create rotations to align `origin_vector` with each of the sampled points
+# rots = []
+# rot_matrices = []
+# for point in points:
+#     # The rotation matrix that aligns origin_vector to the point on the sphere
+#     # The point is a unit vector, so we can directly treat it as the desired direction
+#     rotation = Rotation.align_vectors([point], [origin_vector])[0]  # Align origin_vector to the point
+#     rots.append(rotation)
+#     rot_matrices.append(rotation.as_matrix())
 
-rot_matrices = np.array(rot_matrices)
+# rot_matrices = np.array(rot_matrices)
 
-# Apply the rotations to the origin vector (1, 0, 0)
-rotated_vectors = np.array([rot.apply(origin_vector) for rot in rots])
+# # Apply the rotations to the origin vector (1, 0, 0)
+# rotated_vectors = np.array([rot.apply(origin_vector) for rot in rots])
 
-# Plot the result
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+# # Plot the result
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
 
-# Plot the rotated vectors
-ax.scatter(rotated_vectors[:, 0], rotated_vectors[:, 1], rotated_vectors[:, 2], s=50)
-ax.quiver(0, 0, 0, rotated_vectors[:, 0], rotated_vectors[:, 1], rotated_vectors[:, 2], color='b', length=0.8, normalize=True)
+# # Plot the rotated vectors
+# ax.scatter(rotated_vectors[:, 0], rotated_vectors[:, 1], rotated_vectors[:, 2], s=50)
+# ax.quiver(0, 0, 0, rotated_vectors[:, 0], rotated_vectors[:, 1], rotated_vectors[:, 2], color='b', length=0.8, normalize=True)
 
-ax.set_title("Evenly Distributed Rotated Orientations")
-plt.show(block=False)
+# ax.set_title("Evenly Distributed Rotated Orientations")
+# plt.show(block=False)
 
-# Wait for user interaction before closing all plots
-input("Press Enter to close all plots...")
+# # Wait for user interaction before closing all plots
+# input("Press Enter to close all plots...")
 
 ##############################################################################
 ##############################################################################
