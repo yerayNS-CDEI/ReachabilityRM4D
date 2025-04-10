@@ -1,10 +1,18 @@
 import os
+import sys
 import numpy as np
 from exp_utils import robot_types
 from rm4d.robots import Simulator
 import matplotlib.pyplot as plt
 
 from scipy.ndimage import binary_dilation
+
+# Add the root folder (ws_reachability) to sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.abspath(os.path.join(current_dir, "../../"))
+sys.path.append(root_dir)
+
+from Astar3D import find_path, visualize_path, custom_format
 
 def dilate_obstacles(occupancy_grid, dilation_distance, grid_size):
     # Create a structuring element for dilation (3D cube of size dilation_distance)
@@ -14,6 +22,33 @@ def dilate_obstacles(occupancy_grid, dilation_distance, grid_size):
     # Perform 3D dilation
     dilated_grid = binary_dilation(occupancy_grid, structure=struct_element).astype(np.uint8)
     return dilated_grid
+
+def world_to_grid(x, y, z, x_vals, y_vals, z_vals):
+    """
+    Converts real-world coordinates (like x = 0.35, y = -0.62) into 
+    their corresponding grid indices (i, j) in the 2D array.
+    x,y: real-world coordinates
+    x_vals,y_vals: 1D arrays of grid coordinates along x and y (create_2d_grid)
+    """
+    i = np.argmin(np.abs(x_vals - x))   # find closest x in the grid
+    j = np.argmin(np.abs(y_vals - y))   # find closest y in the grid
+    k = np.argmin(np.abs(z_vals - z))   # find closest z in the grid
+    return i, j, k
+
+# i, j = world_to_grid(0.0, -0.5, x_vals, y_vals)
+# print(i, j)  # might print something like (381, 208)
+# print(grid[381][208])
+
+def grid_to_world(i, j, k, x_vals, y_vals, z_vals):
+    """
+    Converts grid indices (i, j) into their corresponding real-world coordinates (x, y).
+    i, j: grid indices
+    x_vals, y_vals: 1D arrays of grid coordinates along x and y (create_2d_grid)
+    """
+    x = x_vals[i]  # Get the x-coordinate from the grid
+    y = y_vals[j]  # Get the y-coordinate from the grid
+    z = z_vals[k]  # Get the y-coordinate from the grid
+    return x, y, z
 
 # Ensure that the loaded file is a dictionary
 robot_name = 'ur10e'
@@ -147,7 +182,7 @@ plt.show(block=False)
 input("Press Enter to close all plots...")
 
 # Define the dilation distance (in meters, for example)
-dilation_distance = 0.3  # Enlarge obstacles by 0.1 meters in all directions
+dilation_distance = 0.4  # Enlarge obstacles by 0.1 meters in all directions
 
 # Apply dilation
 occupancy_grid_dilated = dilate_obstacles(occupancy_grid, dilation_distance, grid_size)
@@ -183,16 +218,29 @@ input("Press Enter to close all plots...")
 
 # Defining start and goal positions (and orientations)
 # We need to define an "ideal" position as a home for starting the algorithms
-start_position = [0, 0, 0]  # [x,y,z]
-goal_position = [0, 0, 0]  # [x,y,z]
+start_pos_world = [0.25, 1, 0.2]  # [x,y,z]
+goal_pos_world = [-0.25, -0.5, 0.6]   # [x,y,z]
+start_position = world_to_grid(start_pos_world[0], start_pos_world[1], start_pos_world[2], x_vals, y_vals, z_vals)  # [i,j,k]
+goal_position = world_to_grid(goal_pos_world[0], goal_pos_world[1], goal_pos_world[2], x_vals, y_vals, z_vals)      # [i,j,k]
 
 # Computing EE path (A* Algorithm)
+path = find_path(occupancy_grid_dilated, start_position, goal_position)
 
+path_world = []
+for i in range(len(path)):
+    world_coord = grid_to_world(path[i][0],path[i][1],path[i][2],x_vals,y_vals,z_vals)
+    path_world.append(world_coord)
 
+if path_world:
+    print(f"Path found with {len(path_world)} steps!")
+    custom_format(path)
+    visualize_path(occupancy_grid, path)
+else:
+    print("No path found!")
 
 # Computing interpolated orientations
-
-
+start_orientation = []  # rotation matrix
+goal_orientation = []   # rotation matrix
 
 # Computing robot's joint values (Closed form algorithms)
 
