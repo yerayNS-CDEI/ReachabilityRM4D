@@ -551,12 +551,12 @@ end
 %% Smooth Orientation Interpolation
 
 % Define the start and goal rotation matrices
-start_rotation_matrix = rotz(60*pi/180) * roty(45*pi/180) * rotx(30*pi/180);  % Rotation matrix from Euler angles
-goal_rotation_matrix = rotz(200*pi/180) * roty(150*pi/180) * rotx(100*pi/180);  % Another rotation matrix
+start_rotation_matrix = rotx(30*pi/180) * roty(45) * rotz(60);  % Rotation matrix from Euler angles
+goal_rotation_matrix = rotx(100) * roty(150) * rotz(200);  % Another rotation matrix
 
 % Convert the rotation matrices to quaternions
-start_orientation = quaternion(start_rotation_matrix,"rotmat","point"); % "frame", "point"
-goal_orientation = quaternion(goal_rotation_matrix,"rotmat","point");
+start_orientation = quaternion(start_rotation_matrix,"rotmat","frame"); % "frame", "point"
+goal_orientation = quaternion(goal_rotation_matrix,"rotmat","frame");
 
 % Number of interpolations to generate
 num_interpolations = 20;
@@ -580,7 +580,7 @@ for i = 1:num_interpolations
     interpolated_rotation_matrices(:, :, i) = interpolated_rotation_matrix;
     
     % Optionally, convert the interpolated quaternion back to Euler angles for visualization
-    euler_angles = eulerd(interpolated_orientation, 'XYZ', 'point');
+    euler_angles = eulerd(interpolated_orientation, 'ZYX', 'frame');
     interpolated_euler_angles(i, :) = euler_angles;
 end
 
