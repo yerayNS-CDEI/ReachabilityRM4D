@@ -13,6 +13,8 @@ from scipy.ndimage import binary_dilation
 
 from closed_form_algorithm import closed_form_algorithm
 
+import pybullet as p
+
 # Add the root folder (ws_reachability) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.abspath(os.path.join(current_dir, "../../"))
@@ -227,7 +229,7 @@ input("Press Enter to close all plots...")
 #           # We need to define an "ideal" position as a home for starting the closed form algorithms
 ###########################################################################
 
-start_pos_world = [0.25, 1, 0.2]  # [x,y,z]
+start_pos_world = [-0.25, 0.6, 0.2]  # [x,y,z]
 goal_pos_world = [-0.25, -0.5, 0.6]   # [x,y,z]
 start_position = world_to_grid(start_pos_world[0], start_pos_world[1], start_pos_world[2], x_vals, y_vals, z_vals)  # [i,j,k]
 goal_position = world_to_grid(goal_pos_world[0], goal_pos_world[1], goal_pos_world[2], x_vals, y_vals, z_vals)      # [i,j,k]
@@ -269,8 +271,8 @@ start_orientation = []  # rotation matrix
 goal_orientation = []   # rotation matrix
 
 # Define the start and goal rotation matrices using Euler angles
-start_rotation_matrix = R.from_euler('xyz', [30, 45, 60], degrees=True).as_matrix()
-goal_rotation_matrix = R.from_euler('xyz', [100, 150, 60], degrees=True).as_matrix()
+start_rotation_matrix = R.from_euler('xyz', [60, 120, 150], degrees=True).as_matrix()
+goal_rotation_matrix = R.from_euler('xyz', [0, -90, 0], degrees=True).as_matrix()
 start_rotation = R.from_matrix(start_rotation_matrix)
 goal_rotation = R.from_matrix(goal_rotation_matrix)
 # print('start_rotation_matrix',start_rotation_matrix)
@@ -349,9 +351,10 @@ start_rotation = interpolated_rotation_matrices[0]
 start_orientation = np.eye(4)
 start_orientation[:3, :3] = start_rotation
 start_orientation[:3, 3] = start_position
+home_position = np.array([0.0, -1.2, -2.3, -1.2, 1.57, 0.0])
 
 # Initial robot state
-q_current = closed_form_algorithm(start_orientation, np.array([np.pi/4, np.pi/3, np.pi/2, np.pi/4, np.pi/3, np.pi/2]), type=0)
+q_current = closed_form_algorithm(start_orientation, np.array(home_position), type=0)
 all_joint_values.append(q_current)
 print(f"Step 0: q = {np.round(q_current, 4)}")
 
@@ -404,16 +407,33 @@ input("Joints computed...")
 robot_name = 'ur10e'
 sim = Simulator(with_gui=True)
 robot = robot_types[robot_name](sim)
+input("Press Enter to continue...")
 print(f"Initial/Home Position")
-robot.reset_joint_pos(np.array([np.pi/4, np.pi/3, np.pi/2, np.pi/4, np.pi/3, np.pi/2]))
+robot.reset_joint_pos(home_position)
 time.sleep(2)
+
+# for i in range(len(reach_x)):
+#     color_value = reachability[i] / np.max(reachability)  # Normalize
+#     color = cm.viridis(color_value)[:3]  # RGB values
+#     sim.add_sphere(pos=[reach_x[i], reach_y[i], reach_z[i]],
+#                    radius=0.01,
+#                    color=[*color, 0.4])  # Add alpha for transparency
+shared_sphere_id = sim.bullet_client.createVisualShape(
+    p.GEOM_SPHERE, radius=0.01, rgbaColor=[0, 0.5, 1, 0.3])
+
+for i in range(len(reach_x)):
+    sim.add_sphere_v2([reach_x[i], reach_y[i], reach_z[i]], radius=0.01,
+                   color=[0, 0.5, 1], visual_shape_id=shared_sphere_id)
+input("Press Enter to continue...")
 
 for i,q_current in enumerate(all_joint_values):
     robot.reset_joint_pos(q_current)
     print(f"Step {i}: q = {np.round(q_current, 4)}")
     time.sleep(1)
+input("Press Enter to continue...")
 
-input("Press Enter to close all plots...")
+
+input("Press Enter to finish program...")
 
 # Creo que se deberian añadir tambien medidas de seguridad para que el 
 # robot se detenga en caso de que aparezcan obstaculos en el camino.
@@ -421,5 +441,6 @@ input("Press Enter to close all plots...")
 # Una buena manera seria recalcular los puntos en que ahora el robot colisone
 # o modificar el path cada vez que aparezcan nuevos obstaculos en el 
 # reachability map calculado.
+# Collision checking
 
 # Tareas posteriores: añadirlo en nodo de ros para que se mueva el robot simulado
