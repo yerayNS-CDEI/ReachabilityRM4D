@@ -7,8 +7,8 @@ def closed_form_algorithm(goal_matrix, q_current, type):
     
     # d
     vd1 = L1
-    vd2 = 0;
-    vd3 = 0;
+    vd2 = 0
+    vd3 = 0
     vd4 = L2 - L4 + L6
     vd5 = L7
     vd6 = L8
@@ -110,13 +110,17 @@ def closed_form_algorithm(goal_matrix, q_current, type):
             # Checking valid values of q3 (real and |s3|>1e-12)
             try:
                 cosval = (PS_i**2 + PC_i**2 - va2**2 - va3**2) / (2 * va2 * va3)
-                q3_1 = np.arctan2(np.sqrt(1 - cosval**2), cosval)
-                q3_2 = -q3_1
-                if np.isreal(q3_1) and abs(np.sin(q3_1)) > 1e-12:
-                    sol[i * 2, 2] = q3_1
-                if np.isreal(q3_2) and abs(np.sin(q3_2)) > 1e-12:
-                    sol[i * 2 + 1, 2] = q3_2
+                if (1 - cosval**2) >= 0:
+                    q3_1 = np.arctan2(np.sqrt(1 - cosval**2), cosval)
+                    q3_2 = -q3_1
+                    if abs(np.sin(q3_1)) > 1e-12:
+                        sol[i * 2, 2] = q3_1
+                    if abs(np.sin(q3_2)) > 1e-12:
+                        sol[i * 2 + 1, 2] = q3_2
+                # else:
+                    # print('q3 not real')
             except:
+                # print('q3 not computed')
                 continue            
 
         ### Step 5 - q2 and q4 computed, and the sets of angles that are not valid are rejected.
@@ -132,10 +136,23 @@ def closed_form_algorithm(goal_matrix, q_current, type):
                 sol[i, 3] = q4_i
 
         ### Step 6 - Solution with the minimal difference with respect to the current joint positions.
+        print("Solutions found are: \n",sol)
         weights = np.ones(6)
-        diffs = np.array([np.sqrt(np.sum(weights * np.abs(q_current - sol[i]))) if not np.isnan(sol[i, 0]) else np.inf for i in range(8)])
-        idx = np.argmin(diffs)
-        return sol[idx]
+        # diffs = np.array([np.sqrt(np.sum(weights * np.abs(q_current - sol[i]))) if not np.isnan(sol[i, 0]) else np.inf for i in range(8)])
+        # idx = np.argmin(diffs)
+        # return sol[idx]
+        valid_rows = ~np.isnan(sol).any(axis=1)  # Fila válida si no hay ningún nan
+        if np.any(valid_rows):
+            diffs = np.array([
+                np.sqrt(np.sum(weights * np.abs(q_current - sol[i])))
+                for i in range(8) if valid_rows[i]
+            ])
+            idx_valid = np.where(valid_rows)[0]
+            idx = idx_valid[np.argmin(diffs)]
+            return sol[idx]
+        else:
+            print('No feasible solution found!')
+            return np.full(6, np.nan)  # No soluciones válidas encontradas
 
     ############################################
     # Closed form Algorithm 2 (FSM)

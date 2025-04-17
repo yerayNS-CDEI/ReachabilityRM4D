@@ -194,7 +194,7 @@ function y =  closed_form_algorithm(goal_matrix, q_current, type)
         % y = sol(idx,:);
         valid_rows = all(~isnan(sol), 2);   % filas sin ningún NaN
         if any(valid_rows)
-            diffs = sum(abs((sol(valid_rows, :)) - q_current) .* wgs,2);  % distancia ponderada
+            diffs = sum(abs(sol(valid_rows, :) - q_current) .* wgs');  % distancia ponderada
             [~, min_idx] = min(diffs);
             valid_indices = find(valid_rows);  % índices originales válidos
             idx = valid_indices(min_idx);
