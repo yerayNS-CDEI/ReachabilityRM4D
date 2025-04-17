@@ -163,7 +163,7 @@ fig = plt.figure()
 ax = plt.axes(projection='3d')
 
 # Reachability points (non-zero)
-scatter = ax.scatter(reach_y, reach_x, reach_z, c=reachability, cmap='viridis', marker='o', s=10, alpha=0.2, label='Reachability')
+scatter = ax.scatter(reach_y, reach_x, reach_z, c=reachability, cmap='viridis', marker='o', s=10, alpha=0.1, label='Reachability')
 
 # Obstacle points
 # Get voxel coordinates where occupancy = 1
@@ -193,38 +193,38 @@ dilation_distance = 0.4  # Enlarge obstacles by 0.1 meters in all directions
 # Apply dilation
 occupancy_grid_dilated = dilate_obstacles(occupancy_grid, dilation_distance, grid_size)
 
-# Plotting the reachability map
-fig = plt.figure()
-ax = plt.axes(projection='3d')
+# # Plotting the reachability map
+# fig = plt.figure()
+# ax = plt.axes(projection='3d')
 
-# Reachability points (non-zero)
-scatter = ax.scatter(reach_y, reach_x, reach_z, c=reachability, cmap='viridis', marker='o', s=10, alpha=0.2, label='Reachability')
+# # Reachability points (non-zero)
+# scatter = ax.scatter(reach_y, reach_x, reach_z, c=reachability, cmap='viridis', marker='o', s=10, alpha=0.2, label='Reachability')
 
-# Obstacle points
-# Get voxel coordinates where occupancy = 1 in the dilated occupancy grid
-obstacle_indices = np.argwhere(occupancy_grid_dilated == 1)
-obs_x = x_vals[obstacle_indices[:, 0]]
-obs_y = y_vals[obstacle_indices[:, 1]]
-obs_z = z_vals[obstacle_indices[:, 2]]
+# # Obstacle points
+# # Get voxel coordinates where occupancy = 1 in the dilated occupancy grid
+# obstacle_indices = np.argwhere(occupancy_grid_dilated == 1)
+# obs_x = x_vals[obstacle_indices[:, 0]]
+# obs_y = y_vals[obstacle_indices[:, 1]]
+# obs_z = z_vals[obstacle_indices[:, 2]]
 
-# Plot obstacles in red
-ax.scatter(obs_y, obs_x, obs_z, c='red', marker='s', s=20, alpha=0.9, label='Enlarged Obstacle')
+# # Plot obstacles in red
+# ax.scatter(obs_y, obs_x, obs_z, c='red', marker='s', s=20, alpha=0.9, label='Enlarged Obstacle')
 
-# Labels and aesthetics
-ax.set_title("Reachability Map with Enlarged Obstacles")
-ax.set_xlabel('Y')
-ax.set_ylabel('X')
-ax.set_zlabel('Z')
-fig.colorbar(scatter, ax=ax, label='Reachability')
-ax.legend()
-plt.show(block=False)
+# # Labels and aesthetics
+# ax.set_title("Reachability Map with Enlarged Obstacles")
+# ax.set_xlabel('Y')
+# ax.set_ylabel('X')
+# ax.set_zlabel('Z')
+# fig.colorbar(scatter, ax=ax, label='Reachability')
+# ax.legend()
+# plt.show(block=False)
 
 # Wait for user interaction before closing all plots
 input("Press Enter to close all plots...")
 
 ###########################################################################
 # Defining start and goal positions (and orientations)
-#           # We need to define an "ideal" position as a home for starting the algorithms
+#           # We need to define an "ideal" position as a home for starting the closed form algorithms
 ###########################################################################
 
 start_pos_world = [0.25, 1, 0.2]  # [x,y,z]
@@ -238,9 +238,19 @@ goal_position = world_to_grid(goal_pos_world[0], goal_pos_world[1], goal_pos_wor
 path = find_path(occupancy_grid_dilated, start_position, goal_position)     # in grid coordinates!!
 
 path_world = []     # in world coordinates!!
+x_coord = []
+y_coord = []
+z_coord = []
 for i in range(len(path)):
     world_coord = grid_to_world(path[i][0],path[i][1],path[i][2],x_vals,y_vals,z_vals)
+    ax.scatter(world_coord[0], world_coord[1], world_coord[2], c='black', marker='s', s=20, alpha=1.0)
     path_world.append(world_coord)
+    x_coord.append(world_coord[0])
+    y_coord.append(world_coord[1])
+    z_coord.append(world_coord[2])
+print('path_world: ',path_world)
+# print('x_coord: ',x_coord)
+plt.show(block=False)
 
 if path:
     print(f"Path found with {len(path)} steps!")
@@ -260,7 +270,7 @@ goal_orientation = []   # rotation matrix
 
 # Define the start and goal rotation matrices using Euler angles
 start_rotation_matrix = R.from_euler('xyz', [30, 45, 60], degrees=True).as_matrix()
-goal_rotation_matrix = R.from_euler('xyz', [100, 150, 200], degrees=True).as_matrix()
+goal_rotation_matrix = R.from_euler('xyz', [100, 150, 60], degrees=True).as_matrix()
 start_rotation = R.from_matrix(start_rotation_matrix)
 goal_rotation = R.from_matrix(goal_rotation_matrix)
 # print('start_rotation_matrix',start_rotation_matrix)
@@ -325,11 +335,16 @@ input("Press Enter to close all plots...")
 ###########################################################################
 
 # EE coordinates
-x_coord = np.linspace(0.3, -0.3, num_interpolations)
+# x_coord = np.linspace(0.3, -0.3, num_interpolations)
+x_coord = path_world[0][:]
+y_coord = path_world[1][:]
+z_coord = path_world[2][:]
+# print('x_coord v2: ',x_coord)
 all_joint_values = []
 
 # Starting point
-start_position = np.array([x_coord[0], 0.5, 0.3])
+# start_position = np.array([x_coord[0], 0.5, 0.3])
+start_position = np.array([path_world[0][0], path_world[0][1], path_world[0][2]])
 start_rotation = interpolated_rotation_matrices[0]
 start_orientation = np.eye(4)
 start_orientation[:3, :3] = start_rotation
@@ -345,7 +360,8 @@ for i in range(1, interpolated_rotation_matrices.shape[0]):
     # print(f"Step {i}, Current joint values: {q_current}")  # Reemplaza esto con una visualización si quieres
     orientation = np.eye(4)
     orientation[:3, :3] = interpolated_rotation_matrices[i]
-    orientation[:3, 3] = np.array([x_coord[i], 0.5, 0.3])
+    # orientation[:3, 3] = np.array([x_coord[i], 0.5, 0.3])
+    orientation[:3, 3] = np.array([path_world[i][0], path_world[i][1], path_world[i][2]])
     
     q_new = closed_form_algorithm(orientation, q_current, type=0)
     # print(orientation)
@@ -356,12 +372,48 @@ for i in range(1, interpolated_rotation_matrices.shape[0]):
     # time.sleep(1)
 
 print("Process finished")
+print(len(path), len(rotated_vectors))
+
+if path:
+    fig, ax, path_array = visualize_path(occupancy_grid, path)
+    path = np.array(path)    
+    x = path[:, 0]
+    y = path[:, 1]
+    z = path[:, 2]
+    for i, (vec, color) in enumerate(zip(rotated_vectors, colors)):
+        ax.quiver(
+            x[i], y[i], z[i],      # starting point
+            vec[0], vec[1], vec[2],  # direction vector
+            color=color,
+            length=1,  # adjust for better scaling
+            normalize=True
+        )
+    plt.show(block=False)
+else:
+    print("No path found!")
+
+input("Joints computed...")
 
 ###########################################################################
 # Presenting the results in the simulated environement
 ###########################################################################
+# robot.joint_pos # current joint position
+# robot.reset_joint_pos(q) # joint position to a given configuration
 
+# Simulate the robot setup
+robot_name = 'ur10e'
+sim = Simulator(with_gui=True)
+robot = robot_types[robot_name](sim)
+print(f"Initial/Home Position")
+robot.reset_joint_pos(np.array([np.pi/4, np.pi/3, np.pi/2, np.pi/4, np.pi/3, np.pi/2]))
+time.sleep(2)
 
+for i,q_current in enumerate(all_joint_values):
+    robot.reset_joint_pos(q_current)
+    print(f"Step {i}: q = {np.round(q_current, 4)}")
+    time.sleep(1)
+
+input("Press Enter to close all plots...")
 
 # Creo que se deberian añadir tambien medidas de seguridad para que el 
 # robot se detenga en caso de que aparezcan obstaculos en el camino.
