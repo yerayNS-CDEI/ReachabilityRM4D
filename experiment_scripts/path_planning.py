@@ -15,6 +15,8 @@ from closed_form_algorithm import closed_form_algorithm
 
 import pybullet as p
 
+from numpy.linalg import norm
+
 # Add the root folder (ws_reachability) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.abspath(os.path.join(current_dir, "../../"))
@@ -57,6 +59,33 @@ def grid_to_world(i, j, k, x_vals, y_vals, z_vals):
     y = y_vals[j]  # Get the y-coordinate from the grid
     z = z_vals[k]  # Get the y-coordinate from the grid
     return x, y, z
+
+def align_path_to_world(path_local, base_pos=[0.0, 0.0, 0.01], flip_xy=True, R_custom=None):
+    """
+    Transforms a path from local robot base frame to PyBullet world frame.
+
+    Parameters:
+    - path_local: List of (x, y, z) tuples
+    - base_pos: Translation offset to align to world frame
+    - flip_xy: If True, flips X and Y axes (applies diag([-1, -1, 1]))
+    - R_custom: Optional custom rotation matrix (3x3)
+
+    Returns:
+    - path_world: List of transformed (x, y, z) points
+    """
+    t = np.array(base_pos)
+    if R_custom is not None:
+        R = np.array(R_custom)
+    elif flip_xy:
+        R = np.diag([-1, -1, 1])  # flip X and Y
+    else:
+        R = np.eye(3)
+
+    path_world = [(R @ np.array(p) + t).tolist() for p in path_local]
+    return path_world
+
+def scale_path(path, scale_factor):
+    return [(x * scale_factor, y * scale_factor, z * scale_factor) for (x, y, z) in path]
 
 # Ensure that the loaded file is a dictionary
 robot_name = 'ur10e'
@@ -165,7 +194,7 @@ fig = plt.figure()
 ax = plt.axes(projection='3d')
 
 # Reachability points (non-zero)
-scatter = ax.scatter(reach_y, reach_x, reach_z, c=reachability, cmap='viridis', marker='o', s=10, alpha=0.1, label='Reachability')
+scatter = ax.scatter(reach_x, reach_y, reach_z, c=reachability, cmap='viridis', marker='o', s=10, alpha=0.1, label='Reachability')
 
 # Obstacle points
 # Get voxel coordinates where occupancy = 1
@@ -175,7 +204,7 @@ obs_y = y_vals[obstacle_indices[:, 1]]
 obs_z = z_vals[obstacle_indices[:, 2]]
 
 # Plot obstacles in red
-ax.scatter(obs_y, obs_x, obs_z, c='red', marker='s', s=20, alpha=0.9, label='Obstacle')
+ax.scatter(obs_x, obs_y, obs_z, c='red', marker='s', s=20, alpha=0.9, label='Obstacle')
 
 # Labels and aesthetics
 ax.set_title("Reachability Map with Obstacles")
@@ -186,8 +215,8 @@ fig.colorbar(scatter, ax=ax, label='Reachability')
 ax.legend()
 plt.show(block=False)
 
-# Wait for user interaction before closing all plots
-input("Press Enter to close all plots...")
+# # Wait for user interaction before closing all plots
+# input("Press Enter to close all plots...")
 
 # Define the dilation distance (in meters, for example)
 dilation_distance = 0.4  # Enlarge obstacles by 0.1 meters in all directions
@@ -221,8 +250,8 @@ occupancy_grid_dilated = dilate_obstacles(occupancy_grid, dilation_distance, gri
 # ax.legend()
 # plt.show(block=False)
 
-# Wait for user interaction before closing all plots
-input("Press Enter to close all plots...")
+# # Wait for user interaction before closing all plots
+# input("Press Enter to close all plots...")
 
 ###########################################################################
 # Defining start and goal positions (and orientations)
@@ -261,8 +290,8 @@ if path:
 else:
     print("No path found!")
 
-# Wait for user interaction before closing all plots
-input("Press Enter to close all plots...")
+# # Wait for user interaction before closing all plots
+# input("Press Enter to close all plots...")
 
 ###########################################################################
 # Computing interpolated orientations
@@ -412,23 +441,45 @@ print(f"Initial/Home Position")
 robot.reset_joint_pos(home_position)
 time.sleep(2)
 
+aabb_min, aabb_max = sim.bullet_client.getAABB(robot.robot_id)
+size = [b - a for a, b in zip(aabb_min, aabb_max)]
+print("Robot bounding box size (X,Y,Z):", size)
+
+# shared_sphere_id = sim.bullet_client.createVisualShape(
+#     p.GEOM_SPHERE, radius=0.01, rgbaColor=[0, 0.5, 1, 0.3])
+
 # for i in range(len(reach_x)):
-#     color_value = reachability[i] / np.max(reachability)  # Normalize
-#     color = cm.viridis(color_value)[:3]  # RGB values
-#     sim.add_sphere(pos=[reach_x[i], reach_y[i], reach_z[i]],
-#                    radius=0.01,
-#                    color=[*color, 0.4])  # Add alpha for transparency
-shared_sphere_id = sim.bullet_client.createVisualShape(
-    p.GEOM_SPHERE, radius=0.01, rgbaColor=[0, 0.5, 1, 0.3])
+#     sim.add_sphere_v2([reach_x[i], reach_y[i], reach_z[i]], radius=0.01,
+#                    color=[0, 0.5, 1], visual_shape_id=shared_sphere_id)
+# input("Press Enter to continue...")
 
-for i in range(len(reach_x)):
-    sim.add_sphere_v2([reach_x[i], reach_y[i], reach_z[i]], radius=0.01,
-                   color=[0, 0.5, 1], visual_shape_id=shared_sphere_id)
-input("Press Enter to continue...")
+print("First path point:", path_world[0])
+print("Robot base position:", robot.sim.bullet_client.getBasePositionAndOrientation(robot.robot_id)[0])
 
+# Align the path before drawing
+scale_factor = 1.48  # empirically determined
+scaled_path = scale_path(path_world, scale_factor)
+aligned_path = align_path_to_world(scaled_path)  # if you still need axis flip, etc.
+print('aligned_path: ',aligned_path)
+
+# Draw points
+for pos in aligned_path:
+    sim.add_sphere(pos=pos, radius=0.015, color=[0.1, 0.8, 0.2, 1.0])  # greenish
+
+# Draw connecting lines
+for i in range(len(aligned_path) - 1):
+    sim.bullet_client.addUserDebugLine(aligned_path[i], aligned_path[i + 1],
+                                       lineColorRGB=[0, 0, 1], lineWidth=2)
+    
 for i,q_current in enumerate(all_joint_values):
     robot.reset_joint_pos(q_current)
     print(f"Step {i}: q = {np.round(q_current, 4)}")
+    # EE current position in world
+    ee_pos, _ = sim.bullet_client.getLinkState(robot.robot_id, robot.end_effector_link_id)[:2]
+    print('Step ',i,'. ee_pos:  ',ee_pos)
+    # # First path point in world
+    # sim.add_sphere(pos=aligned_path[0], radius=0.02, color=[1, 0, 0, 1])  # red
+    # sim.add_sphere(pos=ee_pos, radius=0.02, color=[0, 0, 1, 1])  # blue
     time.sleep(1)
 input("Press Enter to continue...")
 

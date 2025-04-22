@@ -104,6 +104,18 @@ class Simulator:
         visual_shape = self.bullet_client.createVisualShape(p.GEOM_SPHERE, radius=radius, rgbaColor=rgba)
         body_id = self.bullet_client.createMultiBody(baseMass=0, baseVisualShapeIndex=visual_shape, basePosition=pos)
         return body_id
+    
+    def add_sphere_v2(self, pos, radius, color, visual_shape_id=None):
+        if visual_shape_id is None:
+            if len(color) == 3:
+                rgba = color + [1.0]
+            else:
+                rgba = color
+            visual_shape_id = self.bullet_client.createVisualShape(
+                p.GEOM_SPHERE, radius=radius, rgbaColor=rgba)
+
+        return self.bullet_client.createMultiBody(
+            baseMass=0, baseVisualShapeIndex=visual_shape_id, basePosition=pos)
 
     def bodies_in_collision(self, body1, body2, threshold=-0.001):
         """
