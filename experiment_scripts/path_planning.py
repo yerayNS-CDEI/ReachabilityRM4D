@@ -215,8 +215,8 @@ fig.colorbar(scatter, ax=ax, label='Reachability')
 ax.legend()
 plt.show(block=False)
 
-# # Wait for user interaction before closing all plots
-# input("Press Enter to close all plots...")
+# Wait for user interaction before closing all plots
+input("Press Enter to close all plots...")
 
 # Define the dilation distance (in meters, for example)
 dilation_distance = 0.4  # Enlarge obstacles by 0.1 meters in all directions
@@ -441,9 +441,9 @@ print(f"Initial/Home Position")
 robot.reset_joint_pos(home_position)
 time.sleep(2)
 
-aabb_min, aabb_max = sim.bullet_client.getAABB(robot.robot_id)
-size = [b - a for a, b in zip(aabb_min, aabb_max)]
-print("Robot bounding box size (X,Y,Z):", size)
+# aabb_min, aabb_max = sim.bullet_client.getAABB(robot.robot_id)
+# size = [b - a for a, b in zip(aabb_min, aabb_max)]
+# print("Robot bounding box size (X,Y,Z):", size)
 
 # shared_sphere_id = sim.bullet_client.createVisualShape(
 #     p.GEOM_SPHERE, radius=0.01, rgbaColor=[0, 0.5, 1, 0.3])
@@ -457,10 +457,7 @@ print("First path point:", path_world[0])
 print("Robot base position:", robot.sim.bullet_client.getBasePositionAndOrientation(robot.robot_id)[0])
 
 # Align the path before drawing
-scale_factor = 1.48  # empirically determined
-scaled_path = scale_path(path_world, scale_factor)
-aligned_path = align_path_to_world(scaled_path)  # if you still need axis flip, etc.
-print('aligned_path: ',aligned_path)
+aligned_path = align_path_to_world(path_world)  # if you still need axis flip, etc.
 
 # Draw points
 for pos in aligned_path:
@@ -480,7 +477,8 @@ for i,q_current in enumerate(all_joint_values):
     # # First path point in world
     # sim.add_sphere(pos=aligned_path[0], radius=0.02, color=[1, 0, 0, 1])  # red
     # sim.add_sphere(pos=ee_pos, radius=0.02, color=[0, 0, 1, 1])  # blue
-    time.sleep(1)
+    input("Press Enter to continue...")
+    # time.sleep(1)
 input("Press Enter to continue...")
 
 
