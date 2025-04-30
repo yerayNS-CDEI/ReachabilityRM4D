@@ -19,9 +19,11 @@ rm4d/robots/__init__.py
 rm4d/robots/base.py
 rm4d/robots/franka.py
 rm4d/robots/simulator.py
+rm4d/robots/ur10e.py
 rm4d/robots/ur5e.py
 rm4d/robots/assets/__init__.py
 rm4d/robots/assets/frame_vis.urdf
+rm4d/robots/assets/ur10e.urdf
 rm4d/robots/assets/ur5e_2f85 original.urdf
 rm4d/robots/assets/ur5e_2f85.urdf
 rm4d/robots/assets/__pycache__/__init__.cpython-310.pyc
