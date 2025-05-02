@@ -48,9 +48,11 @@ def main(args):
     sim = Simulator(with_gui=False)
     robot = robot_types[robot_type](sim)
     z_limits = [0, robot.range_z]
+    print(z_limits)
     xy_limits = [-robot.range_radius, robot.range_radius]
+    print(xy_limits)
 
-    rmap = map_types[map_type](xy_limits=xy_limits, z_limits=z_limits, voxel_res=0.05)
+    rmap = map_types[map_type](xy_limits=xy_limits, z_limits=z_limits, voxel_res=0.1)
     hit_stats = HitStats(rmap.shape, record_every=n_section_samples)
     constructor = constructor_types[constructor_type](rmap, robot, seed=seed)
     t = Timer()

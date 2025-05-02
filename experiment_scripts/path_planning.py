@@ -93,6 +93,7 @@ filename = "reachability_map_27_fused"
 fn_npy = f"{filename}.npy"
 reachability_map_fn = os.path.join('data',f'eval_poses_{robot_name}',fn_npy)
 reachability_map = np.load(reachability_map_fn, allow_pickle=True).item()
+print('rmap: ',reachability_map)
 
 # Extract grid size and resolution
 parts = filename.split('_')

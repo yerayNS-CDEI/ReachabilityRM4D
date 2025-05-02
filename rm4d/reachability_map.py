@@ -23,6 +23,7 @@ class ReachabilityMap4D(MapBase):
         self.n_bins_theta = n_bins_theta
 
         # check achieved resolution
+        print(voxel_res,self.n_bins_z)
         assert np.isclose((self.xy_limits[1] - self.xy_limits[0])/self.n_bins_xy, self.voxel_res)
         assert np.isclose((self.z_limits[1] - self.z_limits[0])/self.n_bins_z, self.voxel_res)
         self.theta_res = (self.theta_limits[1] - self.theta_limits[0])/self.n_bins_theta

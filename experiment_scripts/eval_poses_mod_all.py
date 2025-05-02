@@ -6,6 +6,7 @@ from scipy.spatial.transform import Rotation
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
+from rm4d import ReachabilityMap4D
 from rm4d.robots import Simulator
 from rm4d.robots.assets import FRANKA_150_URDF, FRANKA_160_URDF, FRANKA_URDF
 from exp_utils import robot_types, franka_versions
@@ -339,7 +340,8 @@ def main(args):
     grid_size_y = int(np.ceil((y_max - y_min) * grid_resolution))  # Grid size in y-direction
     print("Grid size:", grid_size_x, " x ", grid_size_y)
 
-    rots, rot_matrices = fibonacci_rotations(samples=20)
+    n_orientations = 20
+    rots, rot_matrices = fibonacci_rotations(samples=n_orientations)
 
     num_samples = grid.shape[0]
     print("Number of samples: ",num_samples)
@@ -347,18 +349,38 @@ def main(args):
     input("Press Enter to start the Reachability Map computation...")
 
     # Store reachability maps for each z-level in a dictionary
-    reachability_map = {}
+    reachability_map_3d = {}  # z → (x,y)
+    reachability_map_4d = {}  # z + theta → (x,y)
+    n_bins_z = len(z_values)
+    n_bins_theta = n_orientations
+    rmap4d = ReachabilityMap4D(
+        xy_limits=[x_min, x_max],
+        z_limits=[min(z_values), max(z_values)],
+        voxel_res=voxel_distance,
+        n_bins_theta=n_bins_theta,
+        no_map=True
+    )
+    rmap4d.map = np.zeros((n_bins_z, n_bins_theta, grid_size_x, grid_size_y), dtype=bool)
+
 
     # Iterate through the z-values
+    z_value_to_index = {round(z, 4): i for i, z in enumerate(z_values)}
     for z_value in z_values:
         print(f"Evaluating for z-value: {z_value}")
+
+        # Initialize both maps
+        reachability_map_3d[z_value] = np.zeros((grid_size_x, grid_size_y))
+        reachability_map_4d[z_value] = {
+            theta_idx: np.zeros((grid_size_x, grid_size_y)) for theta_idx in range(n_orientations)
+        }
 
         # Get poses for the current z value
         poses = get_poses_from_positions_and_orientations(grid, z_value, rot_matrices)
         print("Number of total poses: ",poses.shape[0])
 
         # Create a map of reachable positions in the x-y plane
-        reachability_slice = np.zeros((grid_size_x, grid_size_y))
+        reachability_slice_3d = np.zeros((grid_size_x, grid_size_y))
+        reachability_slice_4d = np.zeros((grid_size_x, grid_size_y))
 
         # Evaluate reachability using IK
         reachable_by_ik = evaluate_ik(poses, sim, robot, threshold, iterations, seed)
@@ -373,6 +395,7 @@ def main(args):
             # Scale x and y positions to the grid
             x_idx = int((poses[i, 0, 3] - x_min) * grid_resolution)  # Scale to grid resolution
             y_idx = int((poses[i, 1, 3] - y_min) * grid_resolution)  # Scale to grid resolution
+            theta_idx = i % n_orientations
 
             # Ensure indices are within bounds
             x_idx = np.clip(x_idx, 0, grid_size_x - 1)
@@ -380,14 +403,18 @@ def main(args):
             
             # Set the corresponding grid position to True if reachable
             if reachable_by_ik[i]:
-                reachability_slice[x_idx, y_idx] += 1 
-
-            # Save the reachability map for the current z-value
-            reachability_map[z_value] = reachability_slice
+                # 3D (acumulado)
+                reachability_slice_3d[x_idx, y_idx] += 1
+                reachability_map_3d[z_value][x_idx, y_idx] += 1
+                # 4D
+                reachability_slice_4d[x_idx, y_idx] += 1
+                reachability_map_4d[z_value][theta_idx][x_idx, y_idx] += 1
+                z_idx = z_value_to_index[round(z_value, 4)]
+                rmap4d.map[z_idx, theta_idx, x_idx, y_idx] = True
 
         # Plotting the reachability map
         plt.figure()
-        plt.imshow(reachability_slice, cmap='hot', interpolation='nearest')
+        plt.imshow(reachability_slice_3d, cmap='hot', interpolation='nearest')
         plt.colorbar(label='Reachability')
         plt.title('Reachability Map')
         plt.xlabel('X Index')
@@ -403,36 +430,62 @@ def main(args):
         print(f'{100.0*(num_samples-reachable_by_ik.sum())/num_samples}% determined not reachable.')
 
         # Save the reachability slices to a file for future access
-        reachability_slices_fn = os.path.join(data_dir,f"reachability_slice_{grid_size_x}_{z_value}.npy")
-        
+        reachability_slices_3d_fn = os.path.join(data_dir,f"reachability_slice_{grid_size_x}_{z_value}_3d.npy")
+        reachability_slices_4d_fn = os.path.join(data_dir,f"reachability_slice_{grid_size_x}_{z_value}_4d.npy")
+
         # Check if the file already exists and warn before overwriting
-        if os.path.exists(reachability_slices_fn):
-            response = input(f"Warning: {reachability_slices_fn} already exists. Do you want to overwrite it? (y/n): ")
+        if os.path.exists(reachability_slices_3d_fn):
+            response = input(f"Warning: {reachability_slices_3d_fn} already exists. Do you want to overwrite it? (y/n): ")
             if response.lower() != 'y':
                 print("File not overwritten.")
             else:
-                np.save(reachability_slices_fn, reachability_slice)
-                print(f"Reachability maps saved to {reachability_slices_fn}.")
+                np.save(reachability_slices_3d_fn, reachability_slice_3d)
+                print(f"Reachability slices 3D saved to {reachability_slices_3d_fn}.")
         else:
-            np.save(reachability_slices_fn, reachability_slice)
-            print(f"Reachability maps saved to {reachability_slices_fn}.")
+            np.save(reachability_slices_3d_fn, reachability_slice_3d)
+            print(f"Reachability slices 3D saved to {reachability_slices_3d_fn}.")
+        if os.path.exists(reachability_slices_4d_fn):
+            response = input(f"Warning: {reachability_slices_4d_fn} already exists. Do you want to overwrite it? (y/n): ")
+            if response.lower() != 'y':
+                print("File not overwritten.")
+            else:
+                np.save(reachability_slices_4d_fn, reachability_slice_4d)
+                print(f"Reachability slices 4D saved to {reachability_slices_4d_fn}.")
+        else:
+            np.save(reachability_slices_4d_fn, reachability_slice_4d)
+            print(f"Reachability slices 4D saved to {reachability_slices_4d_fn}.")
 
     sim.disconnect()
 
-    # Save the reachability map to a file for future access
-    reachability_map_fn = os.path.join(data_dir,f"reachability_map_{grid_size_x}.npy")
+    map_4d_obj_fn = os.path.join(data_dir, f"reachability_map_{grid_size_x}_4d_obj.npy")
+    rmap4d.to_file(map_4d_obj_fn)
+    print(f"[INFO] ReachabilityMap4D saved to {map_4d_obj_fn}")
 
+    # Save the reachability map to a file for future access
+    map_3d_fn = os.path.join(data_dir, f"reachability_map_{grid_size_x}_3d.npy")
+    map_4d_fn = os.path.join(data_dir, f"reachability_map_{grid_size_x}_4d.npy")
+    
     # Check if the file already exists and warn before overwriting
-    if os.path.exists(reachability_map_fn):
-        response = input(f"Warning: {reachability_map_fn} already exists. Do you want to overwrite it? (y/n): ")
+    if os.path.exists(map_3d_fn):
+        response = input(f"Warning: {map_3d_fn} already exists. Do you want to overwrite it? (y/n): ")
         if response.lower() != 'y':
             print("File not overwritten.")
         else:
-            np.save(reachability_map_fn, reachability_map)
-            print(f"Reachability maps saved to {reachability_map_fn}.")
+            np.save(map_3d_fn, reachability_map_3d)
+            print(f"[INFO] Reachability maps 3D saved to {map_3d_fn}.")
     else:
-        np.save(reachability_map_fn, reachability_map)
-        print(f"Reachability maps saved to {reachability_map_fn}.")
+        np.save(map_3d_fn, reachability_map_3d)
+        print(f"[INFO] Reachability maps 3D saved to {map_3d_fn}.")
+    if os.path.exists(map_4d_fn):
+        response = input(f"Warning: {map_4d_fn} already exists. Do you want to overwrite it? (y/n): ")
+        if response.lower() != 'y':
+            print("File not overwritten.")
+        else:
+            np.save(map_4d_fn, reachability_map_4d)
+            print(f"[INFO] Reachability maps 4D saved to {map_4d_fn}.")
+    else:
+        np.save(map_4d_fn, reachability_map_4d)
+        print(f"[INFO] Reachability maps 4D saved to {map_4d_fn}.")
 
     # Wait for user interaction before closing all plots
     input("Press Enter to close all plots...")

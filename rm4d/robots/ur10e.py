@@ -29,6 +29,22 @@ class UR10E(RobotBase):
 
         print(f"End effector link index: {end_effector_link_index}")
 
+        # Verificar el offset entre wrist_3_link y tool0
+        wrist_3_index = None
+        for i in range(num_joints):
+            link_name = self.sim.bullet_client.getJointInfo(self.robot_id, i)[12].decode("utf-8")
+            if link_name == "wrist_3_link":
+                wrist_3_index = i
+                break
+
+        if wrist_3_index is not None:
+            tool_pos = self.sim.bullet_client.getLinkState(self.robot_id, end_effector_link_index)[0]
+            wrist_pos = self.sim.bullet_client.getLinkState(self.robot_id, wrist_3_index)[0]
+            z_offset = tool_pos[2] - wrist_pos[2]
+            print(f"[DEBUG] Offset TCP (tool0) - wrist_3_link en Z: {z_offset:.5f} m")
+        else:
+            print("[WARNING] No se encontró wrist_3_link")
+
         # robot properties
         self._end_effector_link_id = end_effector_link_index      # index of TCP
         self._arm_joint_ids = [2, 3, 4, 5, 6, 7]    # movable joints
@@ -52,7 +68,7 @@ class UR10E(RobotBase):
 
     @property
     def range_z(self) -> float:
-        return 1.35     # it should be 1.4 to be more than the actual reach
+        return 1.6     # it should be 1.4 to be more than the actual reach
 
     @property
     def end_effector_link_id(self):

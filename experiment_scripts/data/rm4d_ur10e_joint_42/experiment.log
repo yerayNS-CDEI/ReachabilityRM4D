@@ -1,0 +1,30 @@
+configuration
+constructor_type: joint
+every: 1000000
+map_type: rm4d
+num_samples: 10000000
+robot_type: ur10e
+seed: 42
+10 save points.
+setting up...
+*********************************
+1/10: 1000000 samples after 973.98 seconds.
+	1026.7099 samples per second
+2/10: 2000000 samples after 1949.53 seconds.
+	1025.8883 samples per second
+3/10: 3000000 samples after 2921.08 seconds.
+	1027.0164 samples per second
+4/10: 4000000 samples after 3901.56 seconds.
+	1025.2299 samples per second
+5/10: 5000000 samples after 4881.51 seconds.
+	1024.2734 samples per second
+6/10: 6000000 samples after 5861.31 seconds.
+	1023.6628 samples per second
+7/10: 7000000 samples after 6835.18 seconds.
+	1024.1128 samples per second
+8/10: 8000000 samples after 7804.52 seconds.
+	1025.0474 samples per second
+9/10: 9000000 samples after 8775.99 seconds.
+	1025.5255 samples per second
+10/10: 10000000 samples after 9752.53 seconds.
+	1025.3751 samples per second

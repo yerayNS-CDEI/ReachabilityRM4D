@@ -1,0 +1,10 @@
+configuration
+constructor_type: joint
+every: 1000000
+map_type: rm4d
+num_samples: 10000000
+robot_type: ur10e
+seed: 14
+10 save points.
+setting up...
+*********************************

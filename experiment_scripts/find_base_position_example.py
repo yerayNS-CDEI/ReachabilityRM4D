@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from rm4d import ReachabilityMap4D
 from rm4d.base_pos_grid import BasePosGrid
-from rm4d.robots import Simulator, Franka
+from rm4d.robots import Simulator, Franka, UR10E
 
 from exp_utils import Timer
 from eval_poses import evaluate_ik
@@ -14,6 +14,8 @@ from calculate_accuracy import print_confusion_matrix
 
 map_fn = 'data/rm4d_franka_joint_42/10000000/rmap.npy'
 scene_dir = 'assets/scene01/'
+
+# map_fn = 'data/eval_poses_ur10e/reachability_map_27_fused.npy'
 
 
 def load_scene_in_sim(sim: Simulator, scene):
@@ -77,6 +79,7 @@ def load_scene():
 
 def main():
     rmap = ReachabilityMap4D.from_file(map_fn)
+    print(rmap)
     print(rmap._get_xy_points())
     scene = load_scene()
     grasps = load_grasps()
@@ -88,11 +91,13 @@ def main():
     timer = Timer()
     timer.start('inverse mapping')
     for key, grasps_per_object in grasps.items():
+        print("grasps_per_object: ",grasps_per_object," and g: ",key)
         base_grid = BasePosGrid(x_limits=[0, scene.ground_area[0]], y_limits=[0, scene.ground_area[1]],
                                 n_bins_x=int(scene.ground_area[0]/0.05), n_bins_y=int(scene.ground_area[1]/0.05))
 
         # this could potentially be vectorized
         for g in grasps_per_object:
+            print("grasps_per_object: ",grasps_per_object," and g: ",g)
             base_grid.add_base_positions(rmap.get_base_positions(g))
 
         grids.append(base_grid)
@@ -111,6 +116,7 @@ def main():
 
     sim_direct = Simulator(with_gui=False)
     robot = Franka(sim_direct)
+    # robot = UR10E(sim_direct)
 
     for key, grasps_per_object in grasps.items():
         grasps_per_object[:, 0, 3] -= x
