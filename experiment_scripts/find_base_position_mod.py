@@ -143,6 +143,105 @@ def compute_coverage_per_pose(rmap, poses_ee_translated):
             reachable_by_map[i] = False
     return reachable_by_map
 
+def visualize_base_grid_heatmap(base_grid, title='Base Grid Heatmap'):
+    """
+    Visualiza un heatmap 2D del grid base con el número de poses alcanzables por celda.
+    """
+    heatmap = base_grid.grid.astype(int)
+    plt.figure(figsize=(7, 6))
+    plt.imshow(heatmap, cmap='viridis', origin='lower', extent=[
+        base_grid.x_limits[0], base_grid.x_limits[1],
+        base_grid.y_limits[0], base_grid.y_limits[1]
+    ])
+    plt.colorbar(label='Número de poses alcanzables')
+    plt.title(title)
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.tight_layout()
+    plt.show(block=False)
+
+def visualize_array_heatmap(array_grid, x_limits, y_limits, title='Base Grid Heatmap'):
+    """
+    Visualiza un heatmap 2D de un array ya acumulado (por ejemplo, int[][]).
+    """
+    plt.figure(figsize=(7, 6))
+    plt.imshow(
+        array_grid, cmap='plasma', origin='lower',
+        extent=[x_limits[0], x_limits[1], y_limits[0], y_limits[1]]
+    )
+    plt.colorbar(label='Número de poses alcanzables')
+    plt.title(title)
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.tight_layout()
+    plt.show(block=False)
+
+def visualize_array_heatmap_with_max(array_grid, x_limits, y_limits, title='Base Grid Heatmap'):
+    """
+    Visualiza un heatmap 2D con una marca en la celda de máxima cobertura.
+    """
+    fig, ax = plt.subplots(figsize=(7, 6))
+    im = ax.imshow(
+        array_grid, cmap='plasma', origin='lower',
+        extent=[x_limits[0], x_limits[1], y_limits[0], y_limits[1]]
+    )
+    plt.colorbar(im, ax=ax, label='Número de poses alcanzables')
+    ax.set_title(title)
+    ax.set_xlabel('x [m]')
+    ax.set_ylabel('y [m]')
+
+    if np.any(array_grid > 0):
+        max_idx = np.unravel_index(np.argmax(array_grid), array_grid.shape)
+        x_bins = np.linspace(x_limits[0], x_limits[1], array_grid.shape[1])
+        y_bins = np.linspace(y_limits[0], y_limits[1], array_grid.shape[0])
+        max_x = x_bins[max_idx[1]]
+        max_y = y_bins[max_idx[0]]
+        ax.plot(max_x, max_y, 'ro', markersize=8, label='Máximo')
+        ax.legend()
+    else:
+        ax.text(0.5, 0.5, 'No data', horizontalalignment='center', verticalalignment='center',
+                transform=ax.transAxes, fontsize=14, color='white', bbox=dict(facecolor='red', alpha=0.5))
+
+    plt.tight_layout()
+    plt.show(block=False)
+
+
+def visualize_in_matplotlib(grid: BasePosGrid, title='Base Grid Heatmap', mark_best=True, save_path=None):
+    """
+    Visualiza el grid base como una imagen usando Matplotlib.
+
+    :param grid: instancia de BasePosGrid
+    :param title: título del gráfico
+    :param mark_best: si True, marca la celda con mayor valor
+    :param save_path: si no es None, guarda la imagen en esta ruta
+    """
+    data = grid.grid.astype(int)
+    fig, ax = plt.subplots(figsize=(7, 6))
+    im = ax.imshow(
+        data, cmap='plasma', origin='lower',
+        extent=[grid.x_limits[0], grid.x_limits[1], grid.y_limits[0], grid.y_limits[1]]
+    )
+    plt.colorbar(im, ax=ax, label='Número de poses alcanzables')
+    ax.set_title(title)
+    ax.set_xlabel('x [m]')
+    ax.set_ylabel('y [m]')
+
+    if mark_best and np.any(data > 0):
+        max_idx = np.unravel_index(np.argmax(data), data.shape)
+        x_bins = np.linspace(grid.x_limits[0], grid.x_limits[1], data.shape[1])
+        y_bins = np.linspace(grid.y_limits[0], grid.y_limits[1], data.shape[0])
+        max_x = x_bins[max_idx[1]]
+        max_y = y_bins[max_idx[0]]
+        ax.plot(max_x, max_y, 'ro', markersize=8, label='Máximo')
+        ax.legend()
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path)
+        print(f"[INFO] Imagen guardada en: {save_path}")
+    else:
+        plt.show(block=False)
+
 
 def main():
     #########################################################
@@ -215,8 +314,10 @@ def main():
     # map_fn = 'data/rm4d_franka_joint_42/10000000/rmap.npy'
     map_fn = 'data/rm4d_ur10e_joint_42/10000000/rmap.npy'
     rmap = ReachabilityMap4D.from_file(map_fn)
-    print(rmap)
-    print(rmap._get_xy_points())
+    print(rmap.map.shape)
+    print(np.sum(rmap.map))  # Debería ser > 0 si hay celdas alcanzables
+    # print(rmap)
+    # print(rmap._get_xy_points())
     input('hit enter to proceed')
 
     poses_ee = None
@@ -254,47 +355,108 @@ def main():
     timer = Timer()
     timer.start('inverse mapping')
 
-    if aggregation_mode == 'intersect':
-        grids = []
-        for i, pose in enumerate(poses_ee):
-            try:
-                base_pos = rmap.get_base_positions(pose)
-                grid = BasePosGrid(
-                    x_limits=[-2.0, 2.0],
-                    y_limits=[-2.0, 2.0],
-                    n_bins_x=80,
-                    n_bins_y=80
-                )
-                grid.add_base_positions(base_pos)
-                grids.append(grid)
-            except IndexError as e:
-                print(f"[WARN] Pose #{i} fuera del mapa de alcanzabilidad: {e}")
+    x_limits = [-2.0, 2.0]
+    y_limits = [-2.0, 2.0]
+    n_bins_x = 80
+    n_bins_y = 80
 
-        # Intersectar todos los grids
-        if grids:
-            base_grid = grids[0]
-            for i in range(1, len(grids)):
-                base_grid.intersect(grids[i])
-        else:
-            print("[ERROR] No se generó ninguna grilla válida.")
-            return
+    grids = []
+    individual_grids = []  # Para guardar los grids individuales
+
+    base_grid = BasePosGrid(
+        x_limits=x_limits,
+        y_limits=y_limits,
+        n_bins_x=n_bins_x,
+        n_bins_y=n_bins_y
+    )
+
+    for i, pose in enumerate(poses_ee):
+        try:
+            base_pos = rmap.get_base_positions(pose)
+            grid = BasePosGrid(
+                x_limits=x_limits,
+                y_limits=y_limits,
+                n_bins_x=n_bins_x,
+                n_bins_y=n_bins_y
+            )
+            grid.add_base_positions(base_pos)
+            individual_grids.append((i, grid))
+            base_grid.add_base_positions(base_pos)  # esto hace la unión de todas
+            print(f"[DEBUG] Pose #{i} genera {len(base_pos)} posiciones base")
+        except IndexError as e:
+            print(f"[WARN] Pose #{i} fuera del mapa de alcanzabilidad: {e}")
+        # grids.append(base_grid)
+        # fig, ax = plt.subplots(figsize=(7, 6))
+        # im = ax.imshow(
+        #     individual_grids(i), cmap='plasma', origin='lower',
+        #     extent=[grid.x_limits[0], grid.x_limits[1], grid.y_limits[0], grid.y_limits[1]]
+        # )
+        # plt.colorbar(im, ax=ax, label='Número de poses alcanzables')
+        # ax.set_title('Hetmap en 2D')
+        # ax.set_xlabel('x [m]')
+        # ax.set_ylabel('y [m]')
+    for idx, g in individual_grids:
+        visualize_in_matplotlib(g, title=f"Heatmap individual para pose {idx}")
+    input()
+    
+    print('grids: ',grids[0])
+    print('individual_grids: ',individual_grids[0][1])
+    visualize_in_matplotlib(base_grid, title="Heatmap en 2D")
+    input('Matplotlib listo')
+    grids[0].visualize_in_sim(sim)
+    input('Simulation listo')
+
+    # if aggregation_mode == 'intersect':
+    #     grids = []
+    #     for i, pose in enumerate(poses_ee):
+    #         try:
+    #             base_pos = rmap.get_base_positions(pose)
+    #             grid = BasePosGrid(
+    #                 x_limits=x_limits,
+    #                 y_limits=y_limits,
+    #                 n_bins_x=n_bins_x,
+    #                 n_bins_y=n_bins_y
+    #             )
+    #             grid.add_base_positions(base_pos)
+    #             grids.append(grid)
+    #         except IndexError as e:
+    #             print(f"[WARN] Pose #{i} fuera del mapa de alcanzabilidad: {e}")
+
+    #     # Intersectar todos los grids
+    #     if grids:
+    #         base_grid = grids[0]
+    #         for i in range(1, len(grids)):
+    #             base_grid.intersect(grids[i])
+    #     else:
+    #         print("[ERROR] No se generó ninguna grilla válida.")
+    #         return
         
-    else:  # 'union' o cualquier otro modo flexible
-        base_grid = BasePosGrid(
-            x_limits=[-2.0, 2.0],
-            y_limits=[-2.0, 2.0],
-            n_bins_x=80,
-            n_bins_y=80
-        )
-        for i, pose in enumerate(poses_ee):
-            try:
-                base_pos = rmap.get_base_positions(pose)
-                base_grid.add_base_positions(base_pos)
-            except IndexError as e:
-                print(f"[WARN] Pose #{i} fuera del mapa de alcanzabilidad: {e}")
+    # else:  # 'union' o cualquier otro modo flexible
+    #     for i, pose in enumerate(poses_ee):
+    #         try:
+    #             base_pos = rmap.get_base_positions(pose)
+    #             base_grid.add_base_positions(base_pos)
+    #         except IndexError as e:
+    #             print(f"[WARN] Pose #{i} fuera del mapa de alcanzabilidad: {e}")
 
     timer.stop('inverse mapping')
     timer.print()
+
+    # === VISUALIZACIÓN DE LOS HEATMAPS ===
+    # Visualización individual por pose
+    print(individual_grids)
+    for idx, g in individual_grids:
+        acc = g.grid.astype(int)
+        print(acc)
+        visualize_array_heatmap_with_max(acc, x_limits, y_limits, title=f'Heatmap de Base para Pose #{idx}')
+
+    # # Visualización combinada (cuántas poses son alcanzables desde cada celda)
+    # accumulated = accumulate_grids([g for (_, g) in individual_grids])
+    # if accumulated is not None:
+    #     visualize_array_heatmap_with_max(accumulated, x_limits, y_limits, title='Heatmap combinado: número de poses alcanzables')
+    # else:
+    #     print("[WARN] No hay grillas válidas para mostrar heatmap combinado.")
+    # input()
 
     # === ENCONTRAR MEJOR POSICIÓN BASE ===
     x, y = base_grid.get_best_pos()
