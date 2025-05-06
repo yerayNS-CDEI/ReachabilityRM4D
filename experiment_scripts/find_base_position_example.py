@@ -12,7 +12,8 @@ from eval_poses import evaluate_ik
 from calculate_accuracy import print_confusion_matrix
 
 
-map_fn = 'data/rm4d_franka_joint_42/10000000/rmap.npy'
+# map_fn = 'data/rm4d_franka_joint_42/10000000/rmap.npy'
+map_fn = 'data/rm4d_ur10e_joint_42/10000000/rmap.npy'
 scene_dir = 'assets/scene01/'
 
 # map_fn = 'data/eval_poses_ur10e/reachability_map_27_fused.npy'
@@ -99,9 +100,9 @@ def main():
         for g in grasps_per_object:
             print("grasps_per_object: ",grasps_per_object," and g: ",g)
             base_grid.add_base_positions(rmap.get_base_positions(g))
-
+            
         grids.append(base_grid)
-        # base_grid.show_as_img()
+        base_grid.show_as_img()
 
     for i in range(1, len(grids)):
         grids[0].intersect(grids[i])
@@ -115,8 +116,8 @@ def main():
     sim.add_frame(p, q)
 
     sim_direct = Simulator(with_gui=False)
-    robot = Franka(sim_direct)
-    # robot = UR10E(sim_direct)
+    # robot = Franka(sim_direct)
+    robot = UR10E(sim_direct)
 
     for key, grasps_per_object in grasps.items():
         grasps_per_object[:, 0, 3] -= x
@@ -134,8 +135,9 @@ def main():
 
     timer.print()
 
+    input('Before visualizing in sim')
     grids[0].visualize_in_sim(sim)
-    input()
+    input('After it')
 
     print(grids[0])
     print(dir(grids[0])) 

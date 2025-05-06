@@ -85,19 +85,35 @@ class BasePosGrid:
 
         self.grid += other_grid.grid
 
-    def get_best_pos(self):
+    def get_best_pos(self):     # It takes one random from the better ones, how can we change it??
         x_idx, y_idx = np.unravel_index(np.argmax(self.grid, axis=None), self.grid.shape)
         x = self.x_limits[0] + (x_idx + 0.5) * self.x_res
         y = self.y_limits[0] + (y_idx + 0.5) * self.y_res
+
+        # Encuentra el valor máximo en la grid
+        max_val = np.max(self.grid)
+        # Encuentra las posiciones (índices) que contienen el valor máximo
+        max_positions = np.argwhere(self.grid == max_val)
+        print("Max positions (indices) and their real coordinates:")
+        for pos in max_positions:
+            x_idx, y_idx = pos
+            x = self.x_limits[0] + (x_idx + 0.5) * self.x_res
+            y = self.y_limits[0] + (y_idx + 0.5) * self.y_res
+            print(f"Index: {pos}, Real Coordinates: (x={x:.2f}, y={y:.2f})")
+    
         return x, y
 
-    def show_as_img(self):
+    def show_as_img(self, title="Current Grid State"):
+        plt.figure()
         img = self.grid / np.max(self.grid)
-        plt.imshow(img)
-        plt.show()
+        plt.imshow(np.rot90(img))
+        plt.colorbar()
+        plt.title(title)
+        plt.show(block=False)
 
     def visualize_in_sim(self, sim: Simulator, skip_zero=True):
         max_val = np.max(self.grid)
+        print('max_val: ',max_val)
 
         for i in range(self.n_bins_x):
             for j in range(self.n_bins_y):

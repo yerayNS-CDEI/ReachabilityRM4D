@@ -755,3 +755,306 @@ for i = 1:size(q_path,1)
     UR5.plot(q_current)
     pause(1)
 end
+
+%%
+sol_pre = [ 1.6469  3.2183  0.3562 -2.4252 -0.773  -2.2135];
+py_sol = [-4.5256  3.1779  0.4337 -2.4336 -0.7894 -2.3423];
+mat_sol = [-1.6360   -0.1401   -0.2527   -0.5884    2.2323   -2.0461];
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Proves ROS node
+
+path_world = [-0.30000000000000004, 0.6000000000000001, 0.2;
+                -0.30000000000000004, 0.5, 0.3;
+                -0.30000000000000004, 0.5, 0.4;
+                -0.30000000000000004, 0.40000000000000013, 0.5;
+                -0.30000000000000004, 0.40000000000000013, 0.6;
+                -0.30000000000000004, 0.40000000000000013, 0.7;
+                -0.30000000000000004, 0.30000000000000004, 0.7999999999999999;
+                -0.30000000000000004, 0.19999999999999996, 0.7999999999999999;
+                -0.30000000000000004, 0.10000000000000009, 0.8999999999999999;
+                -0.30000000000000004, 0.0, 0.8999999999999999;
+                -0.30000000000000004, -0.09999999999999987, 0.8999999999999999;
+                -0.30000000000000004, -0.19999999999999996, 0.8999999999999999;
+                -0.30000000000000004, -0.30000000000000004, 0.7999999999999999;
+                -0.30000000000000004, -0.4, 0.7999999999999999;
+                -0.30000000000000004, -0.5, 0.7;
+                -0.30000000000000004, -0.5, 0.6];
+
+
+Step 0: q = [-1.3162  0.7031 -2.0751  1.637   1.875  -1.9533]
+Step 1: q = [-1.2651  0.546  -2.2078  1.7773  1.908  -2.1288]
+Step 2: q = [-1.2756  0.3727 -2.156   1.7521  1.8544 -2.3116]
+Step 3: q = [-1.2163  0.1502 -2.1877  1.8697  1.8459 -2.4925]
+Step 4: q = [-1.2437 -0.0075 -2.0786  1.8007  1.7307 -2.6494]
+Step 5: q = [-1.2771 -0.1527 -1.9482  1.7139  1.5948 -2.7853]
+Step 6: q = [-1.2216 -0.3642 -1.8573  1.749   1.5269 -2.9451]
+Step 7: q = [-1.126  -0.4397 -1.9204  1.826   1.4797 -3.1246]
+Step 8: q = [-2.4226 -1.0953 -1.8478  1.3737  0.561  -1.8339]
+Step 9: q = [-2.0187 -1.0878 -1.7762  1.6474  0.5991 -2.4822]
+Step 10: q = [-1.7913 -1.15   -1.7148  1.763   0.592  -2.8318]
+Step 11: q = [-1.6841 -1.2579 -1.6364  1.7983  0.5172 -3.0246]
+Step 12: q = [-1.6316 -1.3652 -1.7257  1.9608  0.4061  3.1306]
+Step 13: q = [-1.6047 -1.5086 -1.5925  1.9141  0.277   3.0387]
+Step 14: q = [-1.5915 -1.6668 -1.6019  1.9819  0.1389  2.9965]
+Step 15: q = [-1.5893 -1.4663 -1.7984  3.2647 -0.0185  1.5708]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Robot Modelling
+clear; clc; close all
+
+% % Link length UR10e
+% L1 = ;
+% L2 = ;
+% L3 = ;
+% L4 = ;
+% L5 = ;
+% L6 = ;
+% L7 = ;
+% L8 = ;
+
+% d
+vd1 = 0.1807;
+vd2 = 0;
+vd3 = 0;
+vd4 = 0.17415;
+vd5 = 0.11985;
+vd6 = 0.11655;
+
+% a
+va1 = 0;
+va2 = -0.6127;
+va3 = -0.57155;
+va4 = 0;
+va5 = 0;
+va6 = 0;
+
+% alpha
+valpha1 = pi/2;
+valpha2 = 0;
+valpha3 = 0;
+valpha4 = pi/2;
+valpha5 = -pi/2;
+valpha6 = 0;
+
+% L = Link(theta, d, a, alpha); - DH parameters
+L(1) = Link([0  vd1  va1  valpha1]); % L(1) = Link([0        L1   0  pi/2]);
+L(2) = Link([0  vd2  va2  valpha2]); % L(2) = Link([0         0 -L3     0]); offset=-pi/2
+L(3) = Link([0  vd3  va3  valpha3]); % L(3) = Link([0         0 -L5     0]);
+L(4) = Link([0  vd4  va4  valpha4]); % L(4) = Link([0  L2-L4+L6   0  pi/2]); offset=-pi/2
+L(5) = Link([0  vd5  va5  valpha5]); % L(5) = Link([0        L7   0 -pi/2]);
+L(6) = Link([0  vd6  va6  valpha6]); % L(6) = Link([0        L8   0     0]);
+UR5 = SerialLink(L, 'name', 'UR10e')
+
+% % Plot configuration
+% UR10e.plot([0 0 0 0 0 0])
+
+% Forward Kinematics
+
+% joint variables
+syms qi
+syms q1
+syms q2
+syms q3
+syms q4
+syms q5
+syms q6
+assume(qi,'real')
+assume(q1,'real')
+assume(q2,'real')
+assume(q3,'real')
+assume(q4,'real')
+assume(q5,'real')
+assume(q6,'real')
+
+% link lengths
+syms ai
+syms a1
+syms a2
+syms a3
+syms a4
+syms a5
+syms a6
+assume(ai,'real')
+assume(a1,'real')
+assume(a2,'real')
+assume(a3,'real')
+assume(a4,'real')
+assume(a5,'real')
+assume(a6,'real')
+
+% link offsets
+syms di
+syms d1
+syms d2
+syms d3
+syms d4
+syms d5
+syms d6
+assume(di,'real')
+assume(d1,'real')
+assume(d2,'real')
+assume(d3,'real')
+assume(d4,'real')
+assume(d5,'real')
+assume(d6,'real')
+
+% link twists
+syms alphai
+syms alpha1
+syms alpha2
+syms alpha3
+syms alpha4
+syms alpha5
+syms alpha6
+assume(alphai,'real')
+assume(alpha1,'real')
+assume(alpha2,'real')
+assume(alpha3,'real')
+assume(alpha4,'real')
+assume(alpha5,'real')
+assume(alpha6,'real')
+
+% joint offsets
+syms offseti
+syms offset1
+syms offset2
+syms offset3
+syms offset4
+syms offset5
+syms offset6
+assume(offseti,'real')
+assume(offset1,'real')
+assume(offset2,'real')
+assume(offset3,'real')
+assume(offset4,'real')
+assume(offset5,'real')
+assume(offset6,'real')
+
+% Generic formula using DH parameters
+A01i = [cos(qi+offseti) -sin(qi+offseti)*cos(alphai)  sin(qi+offseti)*sin(alphai) ai*cos(qi+offseti);...
+       sin(qi+offseti)  cos(qi+offseti)*cos(alphai) -cos(qi+offseti)*sin(alphai) ai*sin(qi+offseti);...
+          0     sin(alphai)          cos(alphai)         di;...
+          0    0     0    1]
+
+% theta
+vtheta1 = 0;
+vtheta2 = 0; % -pi/2
+vtheta3 = 0;
+vtheta4 = 0; % -pi/2
+vtheta5 = 0;
+vtheta6 = 0;
+
+% A matrices (numerical expression)
+A01 = subs(A01i,{ai,di,alphai,offseti,qi},{ va1,   vd1,  valpha1, vtheta1,  q1});
+A12 = subs(A01i,{ai,di,alphai,offseti,qi},{ va2,   vd2,  valpha2, vtheta2,  q2});
+A23 = subs(A01i,{ai,di,alphai,offseti,qi},{ va3,   vd3,  valpha3, vtheta3,  q3});
+A34 = subs(A01i,{ai,di,alphai,offseti,qi},{ va4,   vd4,  valpha4, vtheta4,  q4});
+A45 = subs(A01i,{ai,di,alphai,offseti,qi},{ va5,   vd5,  valpha5, vtheta5,  q5});
+A56 = subs(A01i,{ai,di,alphai,offseti,qi},{ va6,   vd6,  valpha6, vtheta6,  q6});
+
+% Forward Kinematics
+A06 = simplify(A01*A12*A23*A34*A45*A56)
+qa = [pi/4,pi/3,pi/2,pi/4,pi/3,pi/2];
+T06 = double(subs(A06,{q1,q2,q3,q4,q5,q6},{qa})) % tfs_ee
+
+%%  Data base creation
+% Parámetros de discretización
+joint_min = -pi; % Rango mínimo de las articulaciones
+joint_max = pi;  % Rango máximo de las articulaciones
+joint_step = pi / 180 *5; % Paso de 1 grado en radianes
+
+% Discretización del espacio cartesiano (x, y, z)
+cart_min = -1.5; % Límite mínimo
+cart_max = 1.5;  % Límite máximo
+cart_step = 0.2; % Resolución de 0.1
+
+% Número de pasos en cada eje
+x_steps = (cart_max - cart_min) / cart_step;
+y_steps = (cart_max - cart_min) / cart_step;
+z_steps = (cart_max - cart_min) / cart_step;
+
+% Crear el mapa de voxeles (inicialmente vacío)
+voxels = cell(x_steps, y_steps, z_steps);
+
+% Número total de iteraciones
+total_iterations = ((joint_max - joint_min) / joint_step + 1)^5;
+iteration_count = 0;
+
+% Inicializar la barra de progreso
+hWaitBar = waitbar(0, 'Calculando configuraciones articular y voxeles...', 'Name', 'Progreso', 'WindowStyle', 'modal');
+
+% Iterar sobre todas las configuraciones articulares
+iteration_count = 0;
+for q1_i = joint_min:joint_step:joint_max
+    for q2_i = joint_min:joint_step:joint_max
+        for q3_i = joint_min:joint_step:joint_max
+            for q4_i = joint_min:joint_step:joint_max
+                fprint('INFO: Nuevo valor de q4')
+                for q5_i = joint_min:joint_step:joint_max
+                    % Configuración articular actual (sin q6)
+                    q_current = [q1_i, q2_i, q3_i, q4_i, q5_i, 0];
+                    
+                    % Calcular la pose del end effector
+                    T06 = double(subs(A06, {q1, q2, q3, q4, q5, q6}, q_current)); % q6 = 0
+                    
+                    % Extraer las coordenadas x, y, z del end effector
+                    x = T06(1, 4);
+                    y = T06(2, 4);
+                    z = T06(3, 4);
+                    
+                    % Extraer la orientación (matriz de rotación 3x3)
+                    rotation_matrix = T06(1:3, 1:3);
+                    
+                    % Convertir la matriz de rotación a cuaternión
+                    quaternion = rotm2quat(rotation_matrix);  % Convierte la matriz de rotación a cuaternión
+                    
+                    % Verificar si la posición del end effector está dentro del rango de los voxeles
+                    if x >= cart_min && x <= cart_max && y >= cart_min && y <= cart_max && z >= cart_min && z <= cart_max
+                        % Encontrar las coordenadas del voxel
+                        ix = floor((x - cart_min) / cart_step) + 1;
+                        iy = floor((y - cart_min) / cart_step) + 1;
+                        iz = floor((z - cart_min) / cart_step) + 1;
+                        
+                        % Guardar la configuración articular y la orientación en el voxel correspondiente
+                        voxels{ix, iy, iz} = [voxels{ix, iy, iz}; q_current, quaternion];
+                    else
+                        fprint('ERROR: Punto fuera del mapa!')
+                    end
+                    
+                    % Actualizar la barra de progreso
+                    iteration_count = iteration_count + 1;
+                    waitbar(iteration_count / total_iterations, hWaitBar);
+
+                    % Mostrar el progreso en la consola
+                    if mod(iteration_count, round(total_iterations / 10)) == 0  % Cada 10% del progreso
+                        fprintf('Progreso: %.2f%%\n', (iteration_count / total_iterations) * 100);
+                    end
+                end
+            end
+        end
+    end
+end
+
+% Cerrar la barra de progreso
+close(hWaitBar);
+
+% Guardar la información de los voxeles en un archivo .mat
+save('voxels_data.mat', 'voxels');
+
+% % Cargar la información de los voxeles desde el archivo .mat
+% load('voxels_data.mat', 'voxels');
+
+
+
+
+
+
+

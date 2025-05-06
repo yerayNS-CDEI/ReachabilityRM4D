@@ -11,65 +11,9 @@ from exp_utils import Timer
 from eval_poses import evaluate_ik
 from calculate_accuracy import print_confusion_matrix
 
-
-# def load_scene_in_sim(sim: Simulator, scene):
-#     color_map = plt.get_cmap('tab20')
-#     for color_idx, object_instance in enumerate(scene.objects):
-#         if object_instance.object_type.urdf_fn is None:
-#             raise ValueError(f'object instance of type {object_instance.object_type.identifier} has no urdf_fn.')
-#         if not os.path.exists(object_instance.object_type.urdf_fn):
-#             raise ValueError(f'could not find urdf file for object type {object_instance.object_type.identifier}.' +
-#                              f'expected it at {object_instance.object_type.urdf_fn}.')
-
-#         # pybullet uses center of mass as reference for the transforms in BasePositionAndOrientation
-#         # except in loadURDF - i couldn't figure out which reference system is used in loadURDF
-#         # because just putting the pose of the instance (i.e. the mesh's frame?) is not (always) working
-#         # workaround:
-#         #   all our visual/collision models have the same orientation, i.e. it is only the offset to COM
-#         #   add obj w/o pose, get COM, compute the transform burg2py manually and resetBasePositionAndOrientation
-#         object_id = sim.bullet_client.loadURDF(object_instance.object_type.urdf_fn)
-#         if object_id < 0:
-#             raise ValueError(f'could not add object {object_instance.object_type.identifier}. returned id is negative.')
-
-#         com = np.array(sim.bullet_client.getDynamicsInfo(object_id, -1)[3])
-#         tf_burg2py = np.eye(4)
-#         tf_burg2py[0:3, 3] = com
-#         start_pose = object_instance.pose @ tf_burg2py
-#         pos, quat = sim.tf_to_pos_quat(start_pose)
-#         sim.bullet_client.resetBasePositionAndOrientation(object_id, pos, quat)
-
-#         if sim.verbose:
-#             sim.bullet_client.changeVisualShape(object_id, -1, rgbaColor=color_map(0))
-
-
-# def load_grasps():
-#     # BURG toolkit uses different convention for TCP frame than Franka Panda for its gripper, so we need to transform
-#     tf_grasp2franka = np.asarray([
-#         0, 1, 0, 0,
-#         1, 0, 0, 0,
-#         0, 0, -1, 0,
-#         0, 0, 0, 1
-#     ]).reshape(4, 4)
-
-#     grasps = {}
-#     for f in os.listdir(scene_dir):
-#         if not f.startswith('grasps'):
-#             continue
-
-#         grasp_file = os.path.join(scene_dir, f)
-#         g = np.load(grasp_file, allow_pickle=True)
-#         g = g @ tf_grasp2franka
-#         grasps[f] = g
-
-#     return grasps
-
-
-# def load_scene():
-#     scene_fn = os.path.join(scene_dir, 'scene.yaml')
-#     scene, lib, _ = burg.Scene.from_yaml(scene_fn)
-
-#     return scene
-
+import copy
+from scipy.spatial.transform import Rotation as R
+from closed_form_algorithm import closed_form_algorithm
 
 def visualize_rmap_slice(rmap, z_idx, theta_idx):
     """
@@ -93,44 +37,6 @@ def visualize_rmap_slice(rmap, z_idx, theta_idx):
     plt.tight_layout()
     plt.show()
 
-
-# from mpl_toolkits.mplot3d import Axes3D
-# from scipy.spatial.transform import Rotation
-
-# def visualize_fibonacci_orientations(n_orientations=20):
-#     """
-#     Visualiza los ejes Z (r_z) de las orientaciones generadas con fibonacci_rotations.
-
-#     :param n_orientations: número de orientaciones a generar
-#     """
-#     def fibonacci_sphere(samples):
-#         phi = np.pi * (3. - np.sqrt(5.))
-#         y = np.linspace(1 - 1/samples, -1 + 1/samples, samples)
-#         radius = np.sqrt(1 - y**2)
-#         theta = phi * np.arange(samples)
-#         x = np.cos(theta) * radius
-#         z = np.sin(theta) * radius
-#         return np.stack([x, y, z], axis=1)
-
-#     vectors = fibonacci_sphere(n_orientations)
-
-#     fig = plt.figure(figsize=(6, 6))
-#     ax = fig.add_subplot(111, projection='3d')
-#     ax.scatter(vectors[:, 0], vectors[:, 1], vectors[:, 2], s=50, c='r', label='r_z directions')
-#     ax.quiver(np.zeros_like(vectors[:, 0]), np.zeros_like(vectors[:, 1]), np.zeros_like(vectors[:, 2]),
-#               vectors[:, 0], vectors[:, 1], vectors[:, 2], length=1.0, normalize=True, color='blue', arrow_length_ratio=0.05)
-
-#     ax.set_title(f'Distribución de ejes Z del TCP ({n_orientations} orientaciones)')
-#     ax.set_xlabel('X')
-#     ax.set_ylabel('Y')
-#     ax.set_zlabel('Z')
-#     ax.set_box_aspect([1,1,1])
-#     plt.tight_layout()
-#     plt.legend()
-#     plt.show()
-
-# visualize_fibonacci_orientations(n_orientations=20)
-
 def compute_coverage_per_pose(rmap, poses_ee_translated):
     """
     Devuelve un array booleano indicando si cada pose es alcanzable según el mapa.
@@ -142,106 +48,6 @@ def compute_coverage_per_pose(rmap, poses_ee_translated):
         except IndexError:
             reachable_by_map[i] = False
     return reachable_by_map
-
-def visualize_base_grid_heatmap(base_grid, title='Base Grid Heatmap'):
-    """
-    Visualiza un heatmap 2D del grid base con el número de poses alcanzables por celda.
-    """
-    heatmap = base_grid.grid.astype(int)
-    plt.figure(figsize=(7, 6))
-    plt.imshow(heatmap, cmap='viridis', origin='lower', extent=[
-        base_grid.x_limits[0], base_grid.x_limits[1],
-        base_grid.y_limits[0], base_grid.y_limits[1]
-    ])
-    plt.colorbar(label='Número de poses alcanzables')
-    plt.title(title)
-    plt.xlabel('x [m]')
-    plt.ylabel('y [m]')
-    plt.tight_layout()
-    plt.show(block=False)
-
-def visualize_array_heatmap(array_grid, x_limits, y_limits, title='Base Grid Heatmap'):
-    """
-    Visualiza un heatmap 2D de un array ya acumulado (por ejemplo, int[][]).
-    """
-    plt.figure(figsize=(7, 6))
-    plt.imshow(
-        array_grid, cmap='plasma', origin='lower',
-        extent=[x_limits[0], x_limits[1], y_limits[0], y_limits[1]]
-    )
-    plt.colorbar(label='Número de poses alcanzables')
-    plt.title(title)
-    plt.xlabel('x [m]')
-    plt.ylabel('y [m]')
-    plt.tight_layout()
-    plt.show(block=False)
-
-def visualize_array_heatmap_with_max(array_grid, x_limits, y_limits, title='Base Grid Heatmap'):
-    """
-    Visualiza un heatmap 2D con una marca en la celda de máxima cobertura.
-    """
-    fig, ax = plt.subplots(figsize=(7, 6))
-    im = ax.imshow(
-        array_grid, cmap='plasma', origin='lower',
-        extent=[x_limits[0], x_limits[1], y_limits[0], y_limits[1]]
-    )
-    plt.colorbar(im, ax=ax, label='Número de poses alcanzables')
-    ax.set_title(title)
-    ax.set_xlabel('x [m]')
-    ax.set_ylabel('y [m]')
-
-    if np.any(array_grid > 0):
-        max_idx = np.unravel_index(np.argmax(array_grid), array_grid.shape)
-        x_bins = np.linspace(x_limits[0], x_limits[1], array_grid.shape[1])
-        y_bins = np.linspace(y_limits[0], y_limits[1], array_grid.shape[0])
-        max_x = x_bins[max_idx[1]]
-        max_y = y_bins[max_idx[0]]
-        ax.plot(max_x, max_y, 'ro', markersize=8, label='Máximo')
-        ax.legend()
-    else:
-        ax.text(0.5, 0.5, 'No data', horizontalalignment='center', verticalalignment='center',
-                transform=ax.transAxes, fontsize=14, color='white', bbox=dict(facecolor='red', alpha=0.5))
-
-    plt.tight_layout()
-    plt.show(block=False)
-
-
-def visualize_in_matplotlib(grid: BasePosGrid, title='Base Grid Heatmap', mark_best=True, save_path=None):
-    """
-    Visualiza el grid base como una imagen usando Matplotlib.
-
-    :param grid: instancia de BasePosGrid
-    :param title: título del gráfico
-    :param mark_best: si True, marca la celda con mayor valor
-    :param save_path: si no es None, guarda la imagen en esta ruta
-    """
-    data = grid.grid.astype(int)
-    fig, ax = plt.subplots(figsize=(7, 6))
-    im = ax.imshow(
-        data, cmap='plasma', origin='lower',
-        extent=[grid.x_limits[0], grid.x_limits[1], grid.y_limits[0], grid.y_limits[1]]
-    )
-    plt.colorbar(im, ax=ax, label='Número de poses alcanzables')
-    ax.set_title(title)
-    ax.set_xlabel('x [m]')
-    ax.set_ylabel('y [m]')
-
-    if mark_best and np.any(data > 0):
-        max_idx = np.unravel_index(np.argmax(data), data.shape)
-        x_bins = np.linspace(grid.x_limits[0], grid.x_limits[1], data.shape[1])
-        y_bins = np.linspace(grid.y_limits[0], grid.y_limits[1], data.shape[0])
-        max_x = x_bins[max_idx[1]]
-        max_y = y_bins[max_idx[0]]
-        ax.plot(max_x, max_y, 'ro', markersize=8, label='Máximo')
-        ax.legend()
-
-    plt.tight_layout()
-    if save_path:
-        plt.savefig(save_path)
-        print(f"[INFO] Imagen guardada en: {save_path}")
-    else:
-        plt.show(block=False)
-
 
 def main():
     #########################################################
@@ -307,9 +113,6 @@ def main():
     #########################################################
     #########################################################
 
-    # Modo de agregación: 'intersect' = intersección estricta, 'union' = sumar todo
-    aggregation_mode = 'intersect'  # o 'union'
-
     # === CARGAR MAPA DE ALCANZABILIDAD ===
     # map_fn = 'data/rm4d_franka_joint_42/10000000/rmap.npy'
     map_fn = 'data/rm4d_ur10e_joint_42/10000000/rmap.npy'
@@ -331,13 +134,30 @@ def main():
     # === OPCIÓN 2: Definir manualmente algunas poses ===
     if poses_ee is None:
         pose1 = np.eye(4)
-        pose1[:3, 3] = [0.2, 0.1, 1.0]  # posición x, y, z
+        pose1[:3, 3] = [1.7, 1.6, 0.8]  # posición x, y, z
         pose2 = np.eye(4)
-        pose2[:3, 3] = [0.5, -0.2, 1.2]
+        pose2[:3, 3] = [1.7, 2, 0.8]
         pose3 = np.eye(4)
-        pose3[:3, 3] = [0.5, -0.2, 0.4]
+        pose3[:3, 3] = [1.7, 1.6, 0.3]
         pose4 = np.eye(4)
-        pose4[:3, 3] = [1, -0.4, 0.8]
+        pose4[:3, 3] = [1.7, 2, 0.3]
+
+        # Ángulos de rotación en grados
+        roll = 30  # Rotación alrededor del eje X
+        pitch = 45  # Rotación alrededor del eje Y
+        yaw = 60  # Rotación alrededor del eje Z
+
+        # Crear rotaciones usando los ángulos de Euler (roll, pitch, yaw)
+        rotation = R.from_euler('xyz', [roll, pitch, yaw], degrees=True)
+
+        # Obtener la matriz de rotación 3x3
+        rotation_matrix = rotation.as_matrix()
+
+        # Aplicar la rotación a las matrices de pose
+        pose1[:3, :3] = rotation_matrix @ pose1[:3, :3]  # Aplicar rotación a la parte de rotación
+        pose2[:3, :3] = rotation_matrix @ pose2[:3, :3]
+        pose3[:3, :3] = rotation_matrix @ pose3[:3, :3]
+        pose4[:3, :3] = rotation_matrix @ pose4[:3, :3]
 
         poses_ee = np.stack([pose1, pose2, pose3, pose4])
         print(f"[INFO] Usando {len(poses_ee)} poses definidas manualmente")
@@ -355,113 +175,66 @@ def main():
     timer = Timer()
     timer.start('inverse mapping')
 
-    x_limits = [-2.0, 2.0]
-    y_limits = [-2.0, 2.0]
-    n_bins_x = 80
-    n_bins_y = 80
+    x_limits = [-4, 4]
+    y_limits = [-4, 4]
+    n_bins_x = 100
+    n_bins_y = 100
 
     grids = []
-    individual_grids = []  # Para guardar los grids individuales
-
-    base_grid = BasePosGrid(
-        x_limits=x_limits,
-        y_limits=y_limits,
-        n_bins_x=n_bins_x,
-        n_bins_y=n_bins_y
-    )
-
     for i, pose in enumerate(poses_ee):
         try:
-            base_pos = rmap.get_base_positions(pose)
-            grid = BasePosGrid(
+            indv_grid = BasePosGrid(
                 x_limits=x_limits,
                 y_limits=y_limits,
                 n_bins_x=n_bins_x,
                 n_bins_y=n_bins_y
             )
-            grid.add_base_positions(base_pos)
-            individual_grids.append((i, grid))
-            base_grid.add_base_positions(base_pos)  # esto hace la unión de todas
+            base_pos = rmap.get_base_positions(pose)
+            # print('base_pos shape',np.shape(base_pos))
+            indv_grid.add_base_positions(base_pos)
+            grids.append(indv_grid)
+            # indv_grid.show_as_img()
             print(f"[DEBUG] Pose #{i} genera {len(base_pos)} posiciones base")
         except IndexError as e:
             print(f"[WARN] Pose #{i} fuera del mapa de alcanzabilidad: {e}")
-        # grids.append(base_grid)
-        # fig, ax = plt.subplots(figsize=(7, 6))
-        # im = ax.imshow(
-        #     individual_grids(i), cmap='plasma', origin='lower',
-        #     extent=[grid.x_limits[0], grid.x_limits[1], grid.y_limits[0], grid.y_limits[1]]
-        # )
-        # plt.colorbar(im, ax=ax, label='Número de poses alcanzables')
-        # ax.set_title('Hetmap en 2D')
-        # ax.set_xlabel('x [m]')
-        # ax.set_ylabel('y [m]')
-    for idx, g in individual_grids:
-        visualize_in_matplotlib(g, title=f"Heatmap individual para pose {idx}")
-    input()
+
+    print('grids_shape',np.shape(grids))
     
-    print('grids: ',grids[0])
-    print('individual_grids: ',individual_grids[0][1])
-    visualize_in_matplotlib(base_grid, title="Heatmap en 2D")
-    input('Matplotlib listo')
-    grids[0].visualize_in_sim(sim)
-    input('Simulation listo')
+    input('Individual grids already computed. Press Enter to continue.')
 
-    # if aggregation_mode == 'intersect':
-    #     grids = []
-    #     for i, pose in enumerate(poses_ee):
-    #         try:
-    #             base_pos = rmap.get_base_positions(pose)
-    #             grid = BasePosGrid(
-    #                 x_limits=x_limits,
-    #                 y_limits=y_limits,
-    #                 n_bins_x=n_bins_x,
-    #                 n_bins_y=n_bins_y
-    #             )
-    #             grid.add_base_positions(base_pos)
-    #             grids.append(grid)
-    #         except IndexError as e:
-    #             print(f"[WARN] Pose #{i} fuera del mapa de alcanzabilidad: {e}")
+    grids_union = copy.deepcopy(grids)
+    grids_intersect = copy.deepcopy(grids)
 
-    #     # Intersectar todos los grids
-    #     if grids:
-    #         base_grid = grids[0]
-    #         for i in range(1, len(grids)):
-    #             base_grid.intersect(grids[i])
-    #     else:
-    #         print("[ERROR] No se generó ninguna grilla válida.")
-    #         return
-        
-    # else:  # 'union' o cualquier otro modo flexible
-    #     for i, pose in enumerate(poses_ee):
-    #         try:
-    #             base_pos = rmap.get_base_positions(pose)
-    #             base_grid.add_base_positions(base_pos)
-    #         except IndexError as e:
-    #             print(f"[WARN] Pose #{i} fuera del mapa de alcanzabilidad: {e}")
+    for i in range(1, len(grids)):
+        grids_union[0].union(grids_union[i])
+        grids_intersect[0].intersect(grids_intersect[i])
+
+    grids_intersect[0].show_as_img("grids_intersect")
+    grids_union[0].show_as_img("grids_union")
+    input('Press Enter to continue')
 
     timer.stop('inverse mapping')
     timer.print()
 
-    # === VISUALIZACIÓN DE LOS HEATMAPS ===
-    # Visualización individual por pose
-    print(individual_grids)
-    for idx, g in individual_grids:
-        acc = g.grid.astype(int)
-        print(acc)
-        visualize_array_heatmap_with_max(acc, x_limits, y_limits, title=f'Heatmap de Base para Pose #{idx}')
+    tf_base = np.eye(4)
+    p, q = sim.tf_to_pos_quat(tf_base)
+    sim.add_frame(p, q)
+    input('Origin')
 
-    # # Visualización combinada (cuántas poses son alcanzables desde cada celda)
-    # accumulated = accumulate_grids([g for (_, g) in individual_grids])
-    # if accumulated is not None:
-    #     visualize_array_heatmap_with_max(accumulated, x_limits, y_limits, title='Heatmap combinado: número de poses alcanzables')
-    # else:
-    #     print("[WARN] No hay grillas válidas para mostrar heatmap combinado.")
-    # input()
+    # === VISUALIZACIÓN DE LOS HEATMAPS ===
 
     # === ENCONTRAR MEJOR POSICIÓN BASE ===
-    x, y = base_grid.get_best_pos()
+    x_intersect, y_intersect = grids_intersect[0].get_best_pos()
+    print('x_intersect, y_intersect: ', x_intersect, y_intersect)
     tf_base = np.eye(4)
-    tf_base[:2, 3] = x, y
+    tf_base[:2, 3] = x_intersect, y_intersect
+    p, q = sim.tf_to_pos_quat(tf_base)
+    sim.add_frame(p, q)
+
+    x_union, y_union = grids_union[0].get_best_pos()
+    print('x_union, y_union: ', x_union, y_union)
+    tf_base = np.eye(4)
+    tf_base[:2, 3] = x_union, y_union
     p, q = sim.tf_to_pos_quat(tf_base)
     sim.add_frame(p, q)
 
@@ -472,29 +245,29 @@ def main():
 
     # === COMPARAR ALCANZABILIDAD DE LAS POSES DESDE LA BASE ELEGIDA ===
     poses_ee_translated = poses_ee.copy()
-    poses_ee_translated[:, 0, 3] -= x
-    poses_ee_translated[:, 1, 3] -= y
+    poses_ee_translated[:, 0, 3] -= x_intersect
+    poses_ee_translated[:, 1, 3] -= y_intersect
     timer.start('forward mapping')
     reachable_by_map = compute_coverage_per_pose(rmap, poses_ee_translated)
     timer.stop('forward mapping')
 
-    print(f"\n[RESULTADOS - {aggregation_mode.upper()}]")
-    print(f"Base óptima encontrada en: x = {x:.3f}, y = {y:.3f}")
+    # print(f"\n[RESULTADOS - {aggregation_mode.upper()}]")
+    print(f"Base óptima encontrada en: x = {x_intersect:.3f}, y = {y_intersect:.3f}")
     print(f"Poses alcanzables según mapa desde esta base: {np.sum(reachable_by_map)} de {len(poses_ee)}")
     print(f"Porcentaje de cobertura: {100 * np.mean(reachable_by_map):.2f}%")
 
     reachable_by_ik = evaluate_ik(poses_ee_translated, sim_direct, robot, threshold=25, iterations=100, seed=0) 
-
     print_confusion_matrix(reachable_by_ik, reachable_by_map)
     timer.print()
 
+    input()
+
     # === VISUALIZACIÓN ===
-    # robot_vis = Franka(sim)
-    robot_vis = UR10E(sim)
-    base_grid.visualize_in_sim(sim)
-    for i, tf in enumerate(poses_ee_translated):
+    # robot_vis = UR10E(sim)
+    # grids_union[0].visualize_in_sim(sim)
+    # grids_intersect[0].visualize_in_sim(sim)
+    for i, tf in enumerate(poses_ee):
         pos, quat = sim.tf_to_pos_quat(tf)
-        
         # Añadir frame para mostrar orientación
         sim.add_frame(pos, quat)
         
@@ -505,23 +278,21 @@ def main():
 
     input("[INFO] Presiona Enter para continuar...")
 
-    # robot_vis = Franka(sim, base_pos=[x, y, 0])
-    robot_vis = UR10E(sim, base_pos=[x, y, 0])
-    for i, tf in enumerate(poses_ee_translated):
-        pos, quat = sim.tf_to_pos_quat(tf)
-        ik_sol = robot_vis.inverse_kinematics(pos, quat, threshold=25, trials=100, seed=0)
-        if ik_sol is not None:
-            robot_vis.reset_joint_pos(ik_sol)
-            print(f"[INFO] Pose {i} alcanzable. Presiona Enter para continuar...")
-            input()
-        else:
-            print(f"[INFO] Pose {i} no alcanzable. Presiona Enter para continuar...")
-            input()
-
-    input("[INFO] Presiona Enter para salir...")
-
-    # rmap.show_occupancy_per_dim()
-    
+    robot_vis = UR10E(sim, base_pos=[x_intersect, y_intersect, 0], base_orn=[0,0,1,0])  # Rotation of 180º of the robot base.
+    home_position = np.array([0.0, -1.2, -2.3, -1.2, 1.57, 0.0])
+    # Crear la matriz de rotación de 90 grados en el plano xy
+    R_90 = np.array([[0, 1], [-1, 0]])
+    R_180 = np.array([[-1, 0], [0, -1]])
+    # Initial robot state
+    for i in range(len(poses_ee)):
+        modified_pose = poses_ee_translated[i, :, :].copy()
+        # Rotamos las coordenadas (x, y) en la matriz de pose usando la rotación 90 grados
+        # modified_pose[0, 3], modified_pose[1, 3] = R_180 @ modified_pose[0:2, 3]  # Rotamos solo x, y        
+        q_current = closed_form_algorithm(modified_pose, np.array(home_position), type=0)
+        robot_vis.reset_joint_pos(q_current)
+        input(f"Step {i}: q = {np.round(q_current, 4)}")
+        
+    input("[INFO] Presiona Enter para salir...")  
 
 if __name__ == '__main__':
     main()
