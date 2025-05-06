@@ -100,15 +100,32 @@ class BasePosGrid:
             x = self.x_limits[0] + (x_idx + 0.5) * self.x_res
             y = self.y_limits[0] + (y_idx + 0.5) * self.y_res
             print(f"Index: {pos}, Real Coordinates: (x={x:.2f}, y={y:.2f})")
+
+        
     
         return x, y
 
     def show_as_img(self, title="Current Grid State"):
         plt.figure()
-        img = self.grid / np.max(self.grid)
-        plt.imshow(np.rot90(img))
-        plt.colorbar()
+
+        # Evita división por 0 si grid es todo ceros
+        max_val = np.max(self.grid)
+        img = self.grid / max_val if max_val > 0 else self.grid
+
+        # Asignar ejes físicos
+        x_min, x_max = self.x_limits
+        y_min, y_max = self.y_limits
+
+        extent = [x_min, x_max, y_min, y_max]  # (left, right, bottom, top)
+
+        # Mostrar imagen rotada pero con ejes físicos
+        plt.imshow(np.rot90(img), extent=extent, origin='upper', cmap='hot')
+
+        plt.colorbar(label='Reachable')
         plt.title(title)
+        plt.xlabel("Y (m)")
+        plt.ylabel("X (m)")
+        plt.grid(False)
         plt.show(block=False)
 
     def visualize_in_sim(self, sim: Simulator, skip_zero=True):

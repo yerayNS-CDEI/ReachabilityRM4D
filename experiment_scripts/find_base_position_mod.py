@@ -143,9 +143,9 @@ def main():
         pose4[:3, 3] = [1.7, 2, 0.3]
 
         # Ángulos de rotación en grados
-        roll = 30  # Rotación alrededor del eje X
-        pitch = 45  # Rotación alrededor del eje Y
-        yaw = 60  # Rotación alrededor del eje Z
+        roll = 0  # Rotación alrededor del eje X
+        pitch = 90  # Rotación alrededor del eje Y
+        yaw = 0  # Rotación alrededor del eje Z
 
         # Crear rotaciones usando los ángulos de Euler (roll, pitch, yaw)
         rotation = R.from_euler('xyz', [roll, pitch, yaw], degrees=True)
@@ -221,7 +221,21 @@ def main():
     sim.add_frame(p, q)
     input('Origin')
 
-    # === VISUALIZACIÓN DE LOS HEATMAPS ===
+    # === DEFINICIOn DE OBSTACULOS ===
+    # Ejemplo de mapa con obstáculos (1: libre, 0: ocupado)
+    occupancy_map = np.ones((n_bins_x, n_bins_y), dtype=np.uint8)
+    occupancy_map[74:100, 50:100] = 0  # Simulamos un obstáculo rectangular en el centro
+    # Asegúrate de que ambos arrays son del mismo tamaño
+    assert occupancy_map.shape == grids_intersect[0].grid.shape, "Dimensiones incompatibles"
+    # Opción 1: in-place usando indexación booleana
+    grids_intersect[0].grid[occupancy_map == 0] = 0
+    grids_union[0].grid[occupancy_map == 0] = 0
+    grids_intersect[0].show_as_img("grids_intersect")
+    grids_union[0].show_as_img("grids_union")
+    if not np.any(grids_intersect[0].grid):
+        print("[ERROR] No hay posiciones base válidas tras aplicar la máscara de obstáculos (intersección)")
+    if not np.any(grids_union[0].grid):
+        print("[ERROR] No hay posiciones base válidas tras aplicar la máscara de obstáculos (unión)")
 
     # === ENCONTRAR MEJOR POSICIÓN BASE ===
     x_intersect, y_intersect = grids_intersect[0].get_best_pos()
@@ -265,7 +279,7 @@ def main():
     # === VISUALIZACIÓN ===
     # robot_vis = UR10E(sim)
     # grids_union[0].visualize_in_sim(sim)
-    # grids_intersect[0].visualize_in_sim(sim)
+    grids_intersect[0].visualize_in_sim(sim)
     for i, tf in enumerate(poses_ee):
         pos, quat = sim.tf_to_pos_quat(tf)
         # Añadir frame para mostrar orientación
@@ -280,14 +294,9 @@ def main():
 
     robot_vis = UR10E(sim, base_pos=[x_intersect, y_intersect, 0], base_orn=[0,0,1,0])  # Rotation of 180º of the robot base.
     home_position = np.array([0.0, -1.2, -2.3, -1.2, 1.57, 0.0])
-    # Crear la matriz de rotación de 90 grados en el plano xy
-    R_90 = np.array([[0, 1], [-1, 0]])
-    R_180 = np.array([[-1, 0], [0, -1]])
     # Initial robot state
     for i in range(len(poses_ee)):
         modified_pose = poses_ee_translated[i, :, :].copy()
-        # Rotamos las coordenadas (x, y) en la matriz de pose usando la rotación 90 grados
-        # modified_pose[0, 3], modified_pose[1, 3] = R_180 @ modified_pose[0:2, 3]  # Rotamos solo x, y        
         q_current = closed_form_algorithm(modified_pose, np.array(home_position), type=0)
         robot_vis.reset_joint_pos(q_current)
         input(f"Step {i}: q = {np.round(q_current, 4)}")
