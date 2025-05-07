@@ -63,7 +63,7 @@ def generate_random_orientations(n_orientations, seed):
     rotations = Rotation.random(n_orientations, random_state=rng)
     return rotations.as_matrix()  # shape: (n_orientations, 3, 3)
 
-def fibonacci_sphere(samples=100):
+def fibonacci_sphere(samples=50):
     """
     Generate points uniformly distributed on the surface of a sphere using Fibonacci sampling.
     
@@ -114,78 +114,78 @@ def get_poses_from_positions_and_orientations(valid_positions, z_value, orientat
     return tfs_ee
 
 
-sim = Simulator(with_gui=False)
-robot = robot_types['ur5e'](sim)    # base_pos=[0, 0, 0.8]
+# sim = Simulator(with_gui=False)
+# robot = robot_types['ur5e'](sim)    # base_pos=[0, 0, 0.8]
 
-radius = robot.range_radius
-z_max = robot.range_z
+# radius = robot.range_radius
+# z_max = robot.range_z
 
-print("Robot name: ur5e")
-print("Robot radius: ", radius)
-print("Robot altitude: ", z_max)
+# print("Robot name: ur5e")
+# print("Robot radius: ", radius)
+# print("Robot altitude: ", z_max)
 
-x_min = -radius
-x_max = radius
-y_min = -radius
-y_max = radius
-print("Value ranges: [",x_min,",",x_max,"] and [",y_min,",",y_max,"]")
+# x_min = -radius
+# x_max = radius
+# y_min = -radius
+# y_max = radius
+# print("Value ranges: [",x_min,",",x_max,"] and [",y_min,",",y_max,"]")
 
-# Set a desired grid resolution (number of grid cells per unit distance)
-# voxel_distance = 0.002886 # Distance from voxel to voxel (maximum distnace in the diagonal to obtain a 5mm error - KPI)
-voxel_distance = 0.2  # Distance from voxel to voxel (maximum distnace in the diagonal to obtain a 5mm error - KPI)
-max_error = math.sqrt(3)*voxel_distance*1000   # Position error in mm
-grid_resolution = 1/voxel_distance  # This is the number of cells per unit distance (you can adjust this as needed)
-print(f"Max error: {max_error:.2f} mm")
+# # Set a desired grid resolution (number of grid cells per unit distance)
+# # voxel_distance = 0.002886 # Distance from voxel to voxel (maximum distnace in the diagonal to obtain a 5mm error - KPI)
+# voxel_distance = 0.2  # Distance from voxel to voxel (maximum distnace in the diagonal to obtain a 5mm error - KPI)
+# max_error = math.sqrt(3)*voxel_distance*1000   # Position error in mm
+# grid_resolution = 1/voxel_distance  # This is the number of cells per unit distance (you can adjust this as needed)
+# print(f"Max error: {max_error:.2f} mm")
 
-# Calculate the z values to use on the computation
-z_initial = 0
-z_values = np.arange(z_initial, z_max, voxel_distance)
-print(f"Z coordinates of the grid planes: {z_values}.")
-print("Number of Z planes: ",z_values.shape[0])
+# # Calculate the z values to use on the computation
+# z_initial = 0
+# z_values = np.arange(z_initial, z_max, voxel_distance)
+# print(f"Z coordinates of the grid planes: {z_values}.")
+# print("Number of Z planes: ",z_values.shape[0])
 
-# Calculate the grid size based on the actual range and grid resolution
-grid_size_x = int(np.ceil((x_max - x_min) * grid_resolution))  # Grid size in x-direction
-grid_size_y = int(np.ceil((y_max - y_min) * grid_resolution))  # Grid size in y-direction
-print("Grid size:", grid_size_x, " x ", grid_size_y)
+# # Calculate the grid size based on the actual range and grid resolution
+# grid_size_x = int(np.ceil((x_max - x_min) * grid_resolution))  # Grid size in x-direction
+# grid_size_y = int(np.ceil((y_max - y_min) * grid_resolution))  # Grid size in y-direction
+# print("Grid size:", grid_size_x, " x ", grid_size_y)
 
-# Example usage
-resolution = (x_max - x_min) / (grid_size_x)  # ensures 764 / 77 / 8 steps
-grid, x_vals, y_vals = create_2d_grid(x_min, x_max, y_min, y_max, resolution)
-filtered_coords, mask = filter_circle_area(grid, radius)
-# print(filtered_coords[0:10])
+# # Example usage
+# resolution = (x_max - x_min) / (grid_size_x)  # ensures 764 / 77 / 8 steps
+# grid, x_vals, y_vals = create_2d_grid(x_min, x_max, y_min, y_max, resolution)
+# filtered_coords, mask = filter_circle_area(grid, radius)
+# # print(filtered_coords[0:10])
 
-# Save the reachability maps to a file for future access
-grids_dir = os.path.join('data','grids')
-pathlib.Path(grids_dir).mkdir(parents=True, exist_ok=True)
-grid_npy_fn = os.path.join(grids_dir,f"grid2D_{grid_size_x}.npy")
-grid_csv_fn = os.path.join(grids_dir,f"grid2D_{grid_size_x}.csv")
+# # Save the reachability maps to a file for future access
+# grids_dir = os.path.join('data','grids')
+# pathlib.Path(grids_dir).mkdir(parents=True, exist_ok=True)
+# grid_npy_fn = os.path.join(grids_dir,f"grid2D_{grid_size_x}.npy")
+# grid_csv_fn = os.path.join(grids_dir,f"grid2D_{grid_size_x}.csv")
 
-# Check if the files already exists and warn before overwriting
-if os.path.exists(grid_npy_fn) or os.path.exists(grid_csv_fn):
-    response = input(f"Warning: {grid_npy_fn} or {grid_csv_fn} already exists. Do you want to overwrite them? (y/n): ")
-    if response.lower() != 'y':
-        print("Files not overwritten.")
-    else:
-        np.save(grid_npy_fn, filtered_coords)
-        np.savetxt(grid_csv_fn, filtered_coords, delimiter=",")
-        print(f"Reachability maps saved to {grid_npy_fn} and {grid_csv_fn}.")
-else:
-    np.save(grid_npy_fn, filtered_coords)
-    np.savetxt(grid_csv_fn, filtered_coords, delimiter=",")
-    print(f"Reachability maps saved to {grid_npy_fn} and {grid_csv_fn}.")
+# # Check if the files already exists and warn before overwriting
+# if os.path.exists(grid_npy_fn) or os.path.exists(grid_csv_fn):
+#     response = input(f"Warning: {grid_npy_fn} or {grid_csv_fn} already exists. Do you want to overwrite them? (y/n): ")
+#     if response.lower() != 'y':
+#         print("Files not overwritten.")
+#     else:
+#         np.save(grid_npy_fn, filtered_coords)
+#         np.savetxt(grid_csv_fn, filtered_coords, delimiter=",")
+#         print(f"Reachability maps saved to {grid_npy_fn} and {grid_csv_fn}.")
+# else:
+#     np.save(grid_npy_fn, filtered_coords)
+#     np.savetxt(grid_csv_fn, filtered_coords, delimiter=",")
+#     print(f"Reachability maps saved to {grid_npy_fn} and {grid_csv_fn}.")
 
-occupancy_map = np.zeros((grid_size_x+1, grid_size_y+1), dtype=np.uint8)
-occupancy_map[mask] = 1  # only mark valid cells
+# occupancy_map = np.zeros((grid_size_x+1, grid_size_y+1), dtype=np.uint8)
+# occupancy_map[mask] = 1  # only mark valid cells
 
-print("Total points in full grid:", grid.shape[0] * grid.shape[1])
-print("Points inside circle:", filtered_coords.shape[0])
+# print("Total points in full grid:", grid.shape[0] * grid.shape[1])
+# print("Points inside circle:", filtered_coords.shape[0])
 
-plt.figure()
-plt.imshow(mask.T, origin='lower', cmap='gray')
-plt.title("Circular Area Mask")
-plt.xlabel("Y index")
-plt.ylabel("X index")
-plt.show(block=False)
+# plt.figure()
+# plt.imshow(mask.T, origin='lower', cmap='gray')
+# plt.title("Circular Area Mask")
+# plt.xlabel("Y index")
+# plt.ylabel("X index")
+# plt.show(block=False)
 
 
 ##############################################################################
@@ -229,18 +229,6 @@ ax.quiver(0, 0, 0, rotated_vectors[:, 0], rotated_vectors[:, 1], rotated_vectors
 
 ax.set_title("Evenly Distributed Rotated Orientations")
 plt.show(block=False)
-
-# z_value = 0.3
-# poses = get_poses_from_positions_and_orientations(filtered_coords, z_value, rot_matrices)
-
-# sim = Simulator(with_gui=True)
-
-# for i in range(10):
-#     print([poses[i*20+1,0,3],poses[i*20+1,1,3],z_value])
-#     sim.add_sphere([poses[i*20+1,0,3],poses[i*20+1,1,3],z_value], 0.005, [255,0,0,1.0])
-#     # Wait for user interaction
-#     input("Press Enter to close all plots...")
-# sim.add_sphere([-1.097116644823067, -0.027391874180864972, 0.3], 0.005, [255,0,0,1.0])
 
 # Wait for user interaction
 input("Press Enter to close all plots...")

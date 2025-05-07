@@ -3,4 +3,6 @@ Miniconda3-latest-Linux-x86_64.sh
 __pycache__/
 *.py[cod]
 *$py.class
-
+experiment_scripts/result_files
+experiment_scripts/voxel_temp
+experiment_scripts/Voxels

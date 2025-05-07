@@ -1057,87 +1057,88 @@ save('voxels_data.mat', 'voxels');
 % load('voxels_data.mat', 'voxels');
 
 %% Data base creation v2
-% % Parámetros de discretización
-% joint_min = -pi; % Rango mínimo de las articulaciones
-% joint_max = pi;  % Rango máximo de las articulaciones
-% joint_step = deg2rad(10); % Paso de X grados en radianes
-% 
-% % Discretización del espacio cartesiano (x, y, z)
-% cart_min = -1.5; % Límite mínimo
-% cart_max = 1.5;  % Límite máximo
-% cart_step = 0.1; % Resolución de 0.1
-% 
-% % Número de pasos en cada eje
-% x_steps = (cart_max - cart_min) / cart_step;
-% y_steps = (cart_max - cart_min) / cart_step;
-% z_steps = (cart_max - cart_min) / cart_step;
-% 
-% % Crear el mapa de voxeles (inicialmente vacío)
-% voxels = cell(x_steps, y_steps, z_steps);
-% 
-% % Número total de iteraciones
-% total_iterations = ((joint_max - joint_min) / joint_step + 1)^5;
-% 
-% % Número de iteraciones para mostrar el progreso cada vez que alcanza un bloque significativo (ej. 10%)
-% progress_interval = round(total_iterations / 10);
-% 
-% % Usamos un array temporal para guardar el progreso
-% progress_count = 0;
-% 
-% parfor q1_i = joint_min:joint_step:joint_max
-%     local_voxels = cell(x_steps, y_steps, z_steps);  % Almacenamiento temporal
-% 
-%     for q2_i = joint_min:joint_step:joint_max  
-%         for q3_i = joint_min:joint_step:joint_max      
-%             for q4_i = joint_min:joint_step:joint_max
-%                 for q5_i = joint_min:joint_step:joint_max
-%                     % Configuración articular actual (sin q6)
-%                     q_current = [q1_i, q2_i, q3_i, q4_i, q5_i, 0];
-% 
-%                     % Calcular la pose del end effector
-%                     T06 = double(subs(A06, {q1, q2, q3, q4, q5, q6}, q_current)); % q6 = 0
-% 
-%                     % Extraer las coordenadas x, y, z del end effector
-%                     x = T06(1, 4);
-%                     y = T06(2, 4);
-%                     z = T06(3, 4);
-% 
-%                     % Extraer la orientación (matriz de rotación 3x3)
-%                     rotation_matrix = T06(1:3, 1:3);
-% 
-%                     % Convertir la matriz de rotación a cuaternión
-%                     quaternion = rotm2quat(rotation_matrix);  % Convierte la matriz de rotación a cuaternión
-% 
-%                     % Verificar si la posición del end effector está dentro del rango de los voxeles
-%                     if x >= cart_min && x <= cart_max && y >= cart_min && y <= cart_max && z >= cart_min && z <= cart_max
-%                         % Encontrar las coordenadas del voxel
-%                         ix = floor((x - cart_min) / cart_step) + 1;
-%                         iy = floor((y - cart_min) / cart_step) + 1;
-%                         iz = floor((z - cart_min) / cart_step) + 1;
-% 
-%                         % Guardar la configuración articular y la orientación en el voxel correspondiente
-%                         local_voxels{ix, iy, iz} = [local_voxels{ix, iy, iz}; q_current, quaternion];
-%                     else
-%                         fprintf('ERROR: Punto fuera del mapa!\n')
-%                     end
-%                 end
-%             end
-%         end
-%     end
-% 
-%     % Almacenar los resultados de cada instancia en la variable global `voxels`
-%     % Esto se hace fuera del parfor para evitar problemas de paralelización
-%     for ix = 1:x_steps
-%         for iy = 1:y_steps
-%             for iz = 1:z_steps
-%                 voxels{ix, iy, iz} = [voxels{ix, iy, iz}; local_voxels{ix, iy, iz}];
-%             end
-%         end
-%     end
-% end
-% 
-% % Guardar la información de los voxeles en un archivo .mat
-% save('voxels_data.mat', 'voxels');
+% Parámetros de discretización
+joint_min = -pi; % Rango mínimo de las articulaciones
+joint_max = pi;  % Rango máximo de las articulaciones
+joint_step = deg2rad(10); % Paso de 10 grados en radianes
+
+% Discretización del espacio cartesiano (x, y, z)
+cart_min = -1.5; % Límite mínimo
+cart_max = 1.5;  % Límite máximo
+cart_step = 0.1; % Resolución de 0.1
+
+% Número de pasos en cada eje
+x_steps = (cart_max - cart_min) / cart_step;
+y_steps = (cart_max - cart_min) / cart_step;
+z_steps = (cart_max - cart_min) / cart_step;
+
+% Crear el mapa de voxeles (inicialmente vacío)
+voxels = cell(x_steps, y_steps, z_steps);
+
+% Número total de iteraciones
+total_iterations = ((joint_max - joint_min) / joint_step + 1)^5;
+
+% Dividir el trabajo en partes iguales utilizando parfor
+% Ajustamos los rangos para la paralelización
+
+parfor q1_i = joint_min:joint_step:joint_max
+    fprintf('INFO: Nuevo valor de q1 \n')
+    
+    % Crear un arreglo temporal para cada segmento de trabajo
+    local_voxels = cell(x_steps, y_steps, z_steps);  % Almacenamiento temporal
+
+    for q2_i = joint_min:joint_step:joint_max
+        for q3_i = joint_min:joint_step:joint_max
+            for q4_i = joint_min:joint_step:joint_max
+                for q5_i = joint_min:joint_step:joint_max
+                    % Configuración articular actual (sin q6)
+                    q_current = [q1_i, q2_i, q3_i, q4_i, q5_i, 0];
+
+                    % Calcular la pose del end effector
+                    T06 = double(subs(A06, {q1, q2, q3, q4, q5, q6}, q_current)); % q6 = 0
+
+                    % Extraer las coordenadas x, y, z del end effector
+                    x = T06(1, 4);
+                    y = T06(2, 4);
+                    z = T06(3, 4);
+
+                    % Extraer la orientación (matriz de rotación 3x3)
+                    rotation_matrix = T06(1:3, 1:3);
+
+                    % Convertir la matriz de rotación a cuaternión
+                    quaternion = rotm2quat(rotation_matrix);  % Convierte la matriz de rotación a cuaternión
+
+                    % Verificar si la posición está dentro del rango de los voxeles
+                    if x >= cart_min && x <= cart_max && y >= cart_min && y <= cart_max && z >= cart_min && z <= cart_max
+                        % Encontrar las coordenadas del voxel
+                        ix = floor((x - cart_min) / cart_step) + 1;
+                        iy = floor((y - cart_min) / cart_step) + 1;
+                        iz = floor((z - cart_min) / cart_step) + 1;
+
+                        % Guardar la configuración articular y la orientación en el voxel correspondiente
+                        local_voxels{ix, iy, iz} = [local_voxels{ix, iy, iz}; q_current, quaternion];
+                    end
+                end
+            end
+        end
+    end
+
+    % La fusión de los resultados locales en la variable global debe estar fuera del parfor
+    % Esto se hace fuera del parfor para evitar problemas de paralelización
+    for ix = 1:x_steps
+        for iy = 1:y_steps
+            for iz = 1:z_steps
+                voxels{ix, iy, iz} = [voxels{ix, iy, iz}; local_voxels{ix, iy, iz}];
+            end
+        end
+    end
+end
+
+% Guardar la información de los voxeles en un archivo .mat
+save('voxels_data.mat', 'voxels');
+
+% Guardar la información de los voxeles en un archivo .mat
+save('voxels_data.mat', 'voxels');
 
 
 

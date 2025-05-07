@@ -321,7 +321,149 @@ def closed_form_algorithm(goal_matrix, q_current, type):
         print("Error selecting algorithm!!")
         return np.full(6, np.nan)
 
+def closed_form_algorithm_complete(goal_matrix, type):
+    # # Link length UR10e
+    # L1, L2, L3, L4 = 
+    # L5, L6, L7, L8 = 
 
+    # d
+    vd1 = 0.1807
+    vd2 = 0
+    vd3 = 0
+    vd4 = 0.17415
+    vd5 = 0.11985
+    vd6 = 0.11655
+    
+    # a
+    va1 = 0
+    va2 = -0.6127
+    va3 = -0.57155
+    va4 = 0
+    va5 = 0
+    va6 = 0
+    
+    # Previous determinations
+    px, py, pz = goal_matrix[0, 3], goal_matrix[1, 3], goal_matrix[2, 3]
+    r11, r12, r13 = goal_matrix[0, 0], goal_matrix[0, 1], goal_matrix[0, 2]
+    r21, r22, r23 = goal_matrix[1, 0], goal_matrix[1, 1], goal_matrix[1, 2]
+    r31, r32, r33 = goal_matrix[2, 0], goal_matrix[2, 1], goal_matrix[2, 2]
+
+    ############################################
+    # Closed form Algorithm 1 (All solutions)
+    ############################################
+
+    if type == 0:
+        sol = np.full((8, 6), np.nan)   # rows: number of solutions, cols: joint values
+
+        ### Step 1 - Both q1 solutions are computed, and complex angles are discarded.
+        A = py - vd6 * r23
+        B = px - vd6 * r13
+        q1_vals = []    # fnal size = 2 (number of diferent values)
+
+        # Checking valid values of q1 (result inside sqrt != imginary)
+        try:
+            sqrt_value = B**2 + A**2 - vd4**2
+            if sqrt_value < 0:
+                q1_1 = np.nan
+                q1_2 = np.nan
+            else:
+                q1_1 = np.arctan2(np.sqrt(sqrt_value), vd4) + np.arctan2(B, -A)
+                q1_2 = -np.arctan2(np.sqrt(sqrt_value), vd4) + np.arctan2(B, -A)
+            q1_vals.append(q1_1)
+            sol[0:4, 0] = q1_1
+            q1_vals.append(q1_2)
+            sol[4:8, 0] = q1_2
+        except Exception as e:
+            print(f"Error calculando q1: {e}")
+
+        ### Step 2 - Compute q5. The sets containing values of q5 that are not considered valid are rejected.
+        q5_vals = []    # final size = 4 (number of diferent values)
+        for i, q1_i in enumerate(q1_vals):
+            if np.isnan(q1_i): q5_vals += [np.nan, np.nan]; continue
+            C = np.sin(q1_i) * r11 - np.cos(q1_i) * r21
+            D = np.cos(q1_i) * r22 - np.sin(q1_i) * r12
+            # Checking valid values of q5 (real and |s5|>1e-12)
+            try:
+                s5 = np.sin(q1_i) * r13 - np.cos(q1_i) * r23
+                q5_1 = np.arctan2(np.sqrt(C**2 + D**2), s5)
+                if np.isreal(q5_1) and abs(np.sin(q5_1)) > 1e-12:
+                    q5_vals.append(q5_1)
+                    sol[i * 4 + 0, 4] = q5_1
+                    sol[i * 4 + 1, 4] = q5_1
+                else:
+                    q5_vals.append(np.nan)
+                q5_2 = -np.arctan2(np.sqrt(C**2 + D**2), s5)
+                if np.isreal(q5_2) and abs(np.sin(q5_2)) > 1e-12:
+                    q5_vals.append(q5_2)
+                    sol[i * 4 + 2, 4] = q5_2
+                    sol[i * 4 + 3, 4] = q5_2
+                else:
+                    q5_vals.append(np.nan)
+            except:
+                q5_vals += [np.nan, np.nan]
+
+        ### Step 3 - q6 is computed for the remaining sets.
+        q6_vals = []    # final size = 4 (number of diferent values)
+        for i in range(4):
+            q1_i, q5_i = sol[i * 2, 0], sol[i * 2, 4]
+            if np.isnan(q5_i): q6_vals.append(np.nan); continue
+            C = np.sin(q1_i) * r11 - np.cos(q1_i) * r21
+            D = np.cos(q1_i) * r22 - np.sin(q1_i) * r12
+            q6_i = np.arctan2(D / np.sin(q5_i), C / np.sin(q5_i))
+            q6_vals.append(q6_i)
+            sol[i * 2, 5] = q6_i
+            sol[i * 2 + 1, 5] = q6_i
+
+
+        ### Step 4 - q3 computed and verified. Again, the solutions with angles that are not acceptable are discarded.
+        qaux, PC, PS = [], [], []
+        for i in range(4):
+            q1_i = sol[i * 2, 0]
+            q5_i = sol[i * 2, 4]
+            q6_i = sol[i * 2, 5]
+            if np.isnan(q6_i): continue
+            E = np.cos(q1_i) * r11 + np.sin(q1_i) * r21
+            F = np.cos(q5_i) * np.cos(q6_i)
+            qaux_i = np.arctan2(r31 * F - np.sin(q6_i) * E, F * E + np.sin(q6_i) * r31)
+            PC_i = np.cos(q1_i) * px + np.sin(q1_i) * py - np.sin(qaux_i) * vd5 + np.cos(qaux_i) * np.sin(q5_i) * vd6
+            PS_i = pz - vd1 + np.cos(qaux_i) * vd5 + np.sin(qaux_i) * np.sin(q5_i) * vd6
+            qaux.extend([qaux_i, qaux_i])
+            PC.extend([PC_i, PC_i])
+            PS.extend([PS_i, PS_i])
+            # Checking valid values of q3 (real and |s3|>1e-12)
+            try:
+                cosval = (PS_i**2 + PC_i**2 - va2**2 - va3**2) / (2 * va2 * va3)
+                if (1 - cosval**2) >= 0:
+                    q3_1 = np.arctan2(np.sqrt(1 - cosval**2), cosval)
+                    q3_2 = -q3_1
+                    if abs(np.sin(q3_1)) > 1e-12:
+                        sol[i * 2, 2] = q3_1
+                    if abs(np.sin(q3_2)) > 1e-12:
+                        sol[i * 2 + 1, 2] = q3_2
+                # else:
+                    # print('q3 not real')
+            except:
+                # print('q3 not computed')
+                continue            
+
+        ### Step 5 - q2 and q4 computed, and the sets of angles that are not valid are rejected.
+        for i in range(8):
+            q3_i = sol[i, 2]
+            if np.isnan(q3_i): continue
+            qaux_i, PC_i, PS_i = qaux[i], PC[i], PS[i]
+            q2_i = np.arctan2(PS_i, PC_i) - np.arctan2(np.sin(q3_i) * va3, np.cos(q3_i) * va3 + va2)
+            q4_i = qaux_i - q2_i - q3_i
+            condition = vd5 * np.sin(qaux_i) + va2 * np.cos(q2_i) + va3 * np.cos(q2_i + q3_i)
+            if abs(condition) > 1e-9:
+                sol[i, 1] = q2_i
+                sol[i, 3] = q4_i
+
+        ### Step 6 - Solution with the minimal difference with respect to the current joint positions.
+        return sol
+
+    else:
+        print("Error selecting algorithm!!")
+        return np.full(6, np.nan)
 
 
 
