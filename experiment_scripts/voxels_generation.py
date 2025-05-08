@@ -194,7 +194,7 @@ def get_poses_from_positions_and_orientations(valid_positions, z_value, orientat
 # orientations = generate_random_orientations(n_orientations=20, seed=42)
 
 # Generate 20 evenly distributed points on the unit sphere
-samples = 20
+samples = 40
 points = fibonacci_sphere(samples)
 
 # The original vector is the Z-axis (0, 0, 1)

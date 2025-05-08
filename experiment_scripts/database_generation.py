@@ -301,204 +301,431 @@
 
 # print(f"Fusión completada. voxels_data_{angle_divisions}.pkl generado.")
 
-# # # Guardar como JSON
-# # import json
-# # voxels_json = {str(k): v for k, v in voxels.items()}
-# # with open(f"voxels_data_{angle_divisions}.json", "w") as f_json:
-# #     json.dump(voxels_json, f_json)
-# # print(f"Datos también guardados como voxels_data_{angle_divisions}.json")
+# # Guardar como JSON
+# import json
+# voxels_json = {str(k): v for k, v in voxels.items()}
+# with open(f"voxels_data_{angle_divisions}.json", "w") as f_json:
+#     json.dump(voxels_json, f_json)
+# print(f"Datos también guardados como voxels_data_{angle_divisions}.json")
 
-# # # Guardar como CSV
-# # import csv
-# # with open(f"voxels_data_{angle_divisions}.csv", "w", newline="") as f_csv:
-# #     writer = csv.writer(f_csv)
-# #     writer.writerow(["ix", "iy", "iz", "q1", "q2", "q3", "q4", "q5", "q6", "qx", "qy", "qz", "qw"])
-# #     for (ix, iy, iz), entries in voxels.items():
-# #         for q_config, quat in entries:
-# #             writer.writerow([ix, iy, iz] + q_config + quat)
-# # print(f"Datos también guardados como voxels_data_{angle_divisions}.csv")
+# # Guardar como CSV
+# import csv
+# with open(f"voxels_data_{angle_divisions}.csv", "w", newline="") as f_csv:
+#     writer = csv.writer(f_csv)
+#     writer.writerow(["ix", "iy", "iz", "q1", "q2", "q3", "q4", "q5", "q6", "qx", "qy", "qz", "qw"])
+#     for (ix, iy, iz), entries in voxels.items():
+#         for q_config, quat in entries:
+#             writer.writerow([ix, iy, iz] + q_config + quat)
+# print(f"Datos también guardados como voxels_data_{angle_divisions}.csv")
 
-# # # Guardar como NPZ
-# # np_voxels = {f"{ix}_{iy}_{iz}": np.array(entries, dtype=object) for (ix, iy, iz), entries in voxels.items()}
-# # np.savez_compressed(f"voxels_data_{angle_divisions}.npz", **np_voxels)
-# # print(f"Datos también guardados como voxels_data_{angle_divisions}.npz")
+# # Guardar como NPZ
+# np_voxels = {f"{ix}_{iy}_{iz}": np.array(entries, dtype=object) for (ix, iy, iz), entries in voxels.items()}
+# np.savez_compressed(f"voxels_data_{angle_divisions}.npz", **np_voxels)
+# print(f"Datos también guardados como voxels_data_{angle_divisions}.npz")
 
 ################################################################
 ###### MODO INVERSE KINEMATICS ######
 ################################################################
 
-import numpy as np
-from math import cos, sin, pi
-from scipy.spatial.transform import Rotation
-from itertools import product
-from multiprocessing import Pool, cpu_count
-import os
-import pickle
-import sqlite3
-import gc
-from tqdm import tqdm
-from closed_form_algorithm import closed_form_algorithm_complete
-from functools import partial
+# import numpy as np
+# from math import cos, sin, pi
+# from scipy.spatial.transform import Rotation
+# from itertools import product
+# from multiprocessing import Pool, cpu_count
+# import os
+# import pickle
+# import sqlite3
+# import gc
+# from tqdm import tqdm
+# from closed_form_algorithm import closed_form_algorithm_complete
+# from functools import partial
 
-# Parámetros de discretización
-cart_min, cart_max, cart_step = -1.6, 1.6, 0.05  # Discretización más fina de 0.05
-x_steps = y_steps = z_steps = int((cart_max - cart_min) / cart_step)
+# # Parámetros de discretización
+# cart_min, cart_max, cart_step = -1.6, 1.6, 0.05  # Discretización más fina de 0.05
+# x_steps = y_steps = z_steps = int((cart_max - cart_min) / cart_step)
 
-def fibonacci_sphere(samples=100):
-    """
-    Generate points uniformly distributed on the surface of a sphere using Fibonacci sampling.
+# def fibonacci_sphere(samples=100):
+#     """
+#     Generate points uniformly distributed on the surface of a sphere using Fibonacci sampling.
     
-    :param samples: Number of points to sample
-    :returns: (N, 3) array of points on the unit sphere
-    """
-    x = []
-    y = []
-    z = []
+#     :param samples: Number of points to sample
+#     :returns: (N, 3) array of points on the unit sphere
+#     """
+#     x = []
+#     y = []
+#     z = []
 
-    phi = np.pi * (3. - np.sqrt(5.))  # golden angle in radians
-    for i in range(samples):
-        y.append(1 - (i / float(samples - 1)) * 2)  # y goes from 1 to -1
-        radius = np.sqrt(1 - y[i] * y[i])  # radius at y
-        x.append(np.cos(phi * i) * radius)  # x = cos(phi) * radius
-        z.append(np.sin(phi * i) * radius)  # z = sin(phi) * radius
+#     phi = np.pi * (3. - np.sqrt(5.))  # golden angle in radians
+#     for i in range(samples):
+#         y.append(1 - (i / float(samples - 1)) * 2)  # y goes from 1 to -1
+#         radius = np.sqrt(1 - y[i] * y[i])  # radius at y
+#         x.append(np.cos(phi * i) * radius)  # x = cos(phi) * radius
+#         z.append(np.sin(phi * i) * radius)  # z = sin(phi) * radius
 
-    return np.array(list(zip(x, y, z)))
+#     return np.array(list(zip(x, y, z)))
 
-# Función para generar orientaciones homogéneas (distribuidas uniformemente)
-def generate_orientations(samples=20):
-    points = fibonacci_sphere(samples)  # puntos distribuidos uniformemente sobre la esfera
-    origin_vector = np.array([0, 0, 1])
-    rots = []
-    rot_matrices = []
-    for point in points:
-        rotation = Rotation.align_vectors([point], [origin_vector])[0]
-        rots.append(rotation)
-        rot_matrices.append(rotation.as_matrix())
-    return rot_matrices
+# # Función para generar orientaciones homogéneas (distribuidas uniformemente)
+# def generate_orientations(samples=20):
+#     points = fibonacci_sphere(samples)  # puntos distribuidos uniformemente sobre la esfera
+#     origin_vector = np.array([0, 0, 1])
+#     rots = []
+#     rot_matrices = []
+#     for point in points:
+#         rotation = Rotation.align_vectors([point], [origin_vector])[0]
+#         rots.append(rotation)
+#         rot_matrices.append(rotation.as_matrix())
+#     return rot_matrices
 
-# Función para calcular IK en el centro de cada voxel
-def process_voxel(voxel_idx, voxel_size=0.05, orientations=None, cart_step=0.05, result_file=None):
-    voxel_data = []
-    x_start, y_start, z_start = voxel_idx
+# # Función para calcular IK en el centro de cada voxel
+# def process_voxel(voxel_idx, voxel_size=0.05, orientations=None, cart_step=0.05, result_file=None):
+#     voxel_data = []
+#     x_start, y_start, z_start = voxel_idx
     
-    # El centro del voxel es simplemente el centro del intervalo
-    pos = [x_start * voxel_size + voxel_size / 2, y_start * voxel_size + voxel_size / 2, z_start * voxel_size + voxel_size / 2]
+#     # El centro del voxel es simplemente el centro del intervalo
+#     pos = [x_start * voxel_size + voxel_size / 2, y_start * voxel_size + voxel_size / 2, z_start * voxel_size + voxel_size / 2]
     
-    # Usamos las orientaciones precalculadas
-    for rot in orientations:
-        goal_matrix = np.eye(4)
-        goal_matrix[:3, 3] = pos
-        goal_matrix[:3, :3] = rot
+#     # Usamos las orientaciones precalculadas
+#     for rot in orientations:
+#         goal_matrix = np.eye(4)
+#         goal_matrix[:3, 3] = pos
+#         goal_matrix[:3, :3] = rot
 
-        solutions = closed_form_algorithm_complete(goal_matrix, type=0)  # Obtener todas las soluciones de IK
-        valid_solutions = [sol for sol in solutions if np.all(np.isfinite(sol))]  # Filtrar soluciones válidas (sin NaN)
+#         solutions = closed_form_algorithm_complete(goal_matrix, type=0)  # Obtener todas las soluciones de IK
+#         valid_solutions = [sol for sol in solutions if np.all(np.isfinite(sol))]  # Filtrar soluciones válidas (sin NaN)
 
-        if valid_solutions:
-            for sol in valid_solutions:
-                voxel_data.append((pos, rot, sol))
+#         if valid_solutions:
+#             for sol in valid_solutions:
+#                 voxel_data.append((pos, rot, sol))
                 
-                # Guardar en el archivo intermedio si está habilitado
-                if result_file is not None:
-                    with open(result_file, 'ab') as f:
-                        pickle.dump((pos, rot, sol), f)
+#                 # Guardar en el archivo intermedio si está habilitado
+#                 if result_file is not None:
+#                     with open(result_file, 'ab') as f:
+#                         pickle.dump((pos, rot, sol), f)
 
-    return voxel_data
+#     return voxel_data
 
-# Función que guarda los datos de la cola en la base de datos SQLite desde archivos
-def save_to_db_from_files(result_dir, db_filename='reachability.db3', batch_size=100):
-    conn = sqlite3.connect(db_filename)
-    cursor = conn.cursor()
+# # Función que guarda los datos de la cola en la base de datos SQLite desde archivos
+# def save_to_db_from_files(result_dir, db_filename='reachability.db3', batch_size=100):
+#     conn = sqlite3.connect(db_filename)
+#     cursor = conn.cursor()
 
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS reachability_data (
-        x REAL,
-        y REAL,
-        z REAL,
-        orientation TEXT,
-        joint_values TEXT
-    )
-    ''')
+#     cursor.execute('''
+#     CREATE TABLE IF NOT EXISTS reachability_data (
+#         x REAL,
+#         y REAL,
+#         z REAL,
+#         orientation TEXT,
+#         joint_values TEXT
+#     )
+#     ''')
 
-    batch_data = []
-    # Procesar los archivos en el directorio
-    for filename in os.listdir(result_dir):
-        if filename.endswith(".pkl"):
-            with open(os.path.join(result_dir, filename), 'rb') as f:
-                while True:
-                    try:
-                        data = pickle.load(f)
-                        batch_data.append(data)
+#     batch_data = []
+#     # Procesar los archivos en el directorio
+#     for filename in os.listdir(result_dir):
+#         if filename.endswith(".pkl"):
+#             with open(os.path.join(result_dir, filename), 'rb') as f:
+#                 while True:
+#                     try:
+#                         data = pickle.load(f)
+#                         batch_data.append(data)
 
-                        # Si hemos acumulado suficiente data, lo guardamos
-                        if len(batch_data) >= batch_size:
-                            for pos, rot, q in batch_data:
-                                cursor.execute('''
-                                INSERT INTO reachability_data (x, y, z, orientation, joint_values)
-                                VALUES (?, ?, ?, ?, ?)
-                                ''', (pos[0], pos[1], pos[2], str(rot.tolist()), str(q.tolist())))
-                            conn.commit()
-                            batch_data = []  # Limpiar el buffer después de guardarlo
-                    except EOFError:
-                        break  # Fin del archivo
+#                         # Si hemos acumulado suficiente data, lo guardamos
+#                         if len(batch_data) >= batch_size:
+#                             for pos, rot, q in batch_data:
+#                                 cursor.execute('''
+#                                 INSERT INTO reachability_data (x, y, z, orientation, joint_values)
+#                                 VALUES (?, ?, ?, ?, ?)
+#                                 ''', (pos[0], pos[1], pos[2], str(rot.tolist()), str(q.tolist())))
+#                             conn.commit()
+#                             batch_data = []  # Limpiar el buffer después de guardarlo
+#                     except EOFError:
+#                         break  # Fin del archivo
 
-    # Guardar cualquier dato restante que no haya sido guardado aún
-    if batch_data:
-        for pos, rot, q in batch_data:
-            cursor.execute('''
-            INSERT INTO reachability_data (x, y, z, orientation, joint_values)
-            VALUES (?, ?, ?, ?, ?)
-            ''', (pos[0], pos[1], pos[2], str(rot.tolist()), str(q.tolist())))
-        conn.commit()
+#     # Guardar cualquier dato restante que no haya sido guardado aún
+#     if batch_data:
+#         for pos, rot, q in batch_data:
+#             cursor.execute('''
+#             INSERT INTO reachability_data (x, y, z, orientation, joint_values)
+#             VALUES (?, ?, ?, ?, ?)
+#             ''', (pos[0], pos[1], pos[2], str(rot.tolist()), str(q.tolist())))
+#         conn.commit()
 
-    conn.close()
+#     conn.close()
 
-# Función principal para ejecutar el proceso con multiprocessing
-def main(cart_step=0.05, samples=20, batch_size=100, result_dir='result_files', group_size=1000):
-    # Calcular el número total de operaciones (voxeles * orientaciones)
-    total_operations = x_steps * y_steps * z_steps * samples
-    # Calcular el máximo de datos que se pueden obtener (voxeles * orientaciones * 6 soluciones)
-    max_data = total_operations * 6
+# # Función principal para ejecutar el proceso con multiprocessing
+# def main(cart_step=0.05, samples=20, batch_size=100, result_dir='result_files', group_size=1000):
+#     # Calcular el número total de operaciones (voxeles * orientaciones)
+#     total_operations = x_steps * y_steps * z_steps * samples
+#     # Calcular el máximo de datos que se pueden obtener (voxeles * orientaciones * 6 soluciones)
+#     max_data = total_operations * 6
 
-    # Mostrar la cantidad de operaciones y el máximo de datos
-    print(f"Total de operaciones: {total_operations}")
-    print(f"Máximo de datos a generar (aproximadamente): {max_data} soluciones de IK")
+#     # Mostrar la cantidad de operaciones y el máximo de datos
+#     print(f"Total de operaciones: {total_operations}")
+#     print(f"Máximo de datos a generar (aproximadamente): {max_data} soluciones de IK")
 
-    # Crear directorio para los resultados si no existe
-    os.makedirs(result_dir, exist_ok=True)
+#     # Crear directorio para los resultados si no existe
+#     os.makedirs(result_dir, exist_ok=True)
 
-    # Generar los voxeles (por ejemplo, usando las posiciones de (x, y, z))
-    voxels = list(product(range(x_steps), range(y_steps), range(z_steps)))  # Convertimos a lista para poder medir el tamaño
+#     # Generar los voxeles (por ejemplo, usando las posiciones de (x, y, z))
+#     voxels = list(product(range(x_steps), range(y_steps), range(z_steps)))  # Convertimos a lista para poder medir el tamaño
 
-    # Calcular las orientaciones solo una vez antes del procesamiento de los voxeles
-    orientations = generate_orientations(samples)  # Esto se realiza una sola vez
+#     # Calcular las orientaciones solo una vez antes del procesamiento de los voxeles
+#     orientations = generate_orientations(samples)  # Esto se realiza una sola vez
 
-    # Crear nombre dinámico para los archivos intermedios usando cart_step y samples
-    result_file_template = os.path.join(result_dir, f"voxels_{cart_step}_step_{samples}_orientations_batch_{{}}.pkl")
+#     # Crear nombre dinámico para los archivos intermedios usando cart_step y samples
+#     result_file_template = os.path.join(result_dir, f"voxels_{cart_step}_step_{samples}_orientations_batch_{{}}.pkl")
 
-    batch_counter = 1
-    result_file = result_file_template.format(batch_counter)
+#     batch_counter = 1
+#     result_file = result_file_template.format(batch_counter)
 
-    # Multiprocessing con barra de progreso
-    with Pool(processes=cpu_count()) as pool:
-        with tqdm(total=total_operations, desc="Procesando voxeles", unit="voxel") as pbar:
-            # Asegúrate de pasar todos los parámetros correctamente en el partial
-            process_voxel_partial = partial(process_voxel, result_file=result_file, cart_step=cart_step, orientations=orientations)
+#     # Multiprocessing con barra de progreso
+#     with Pool(processes=cpu_count()) as pool:
+#         with tqdm(total=total_operations, desc="Procesando voxeles", unit="voxel") as pbar:
+#             # Asegúrate de pasar todos los parámetros correctamente en el partial
+#             process_voxel_partial = partial(process_voxel, result_file=result_file, cart_step=cart_step, orientations=orientations)
 
-            for result in pool.imap_unordered(process_voxel_partial, voxels, chunksize=100):
-                pbar.update(1)
+#             for result in pool.imap_unordered(process_voxel_partial, voxels, chunksize=100):
+#                 pbar.update(1)
 
-                # Comprobar si hemos alcanzado el tamaño del grupo
-                if os.path.getsize(result_file) >= group_size * 1024 * 1024:  # Cambiar el tamaño de archivo en bytes
-                    batch_counter += 1
-                    result_file = result_file_template.format(batch_counter)
+#                 # Comprobar si hemos alcanzado el tamaño del grupo
+#                 if os.path.getsize(result_file) >= group_size * 1024 * 1024:  # Cambiar el tamaño de archivo en bytes
+#                     batch_counter += 1
+#                     result_file = result_file_template.format(batch_counter)
 
-    # Después de terminar, procesamos los archivos guardados para agregarlos a la base de datos
-    save_to_db_from_files(result_dir, 'reachability.db3', batch_size)
+#     # Después de terminar, procesamos los archivos guardados para agregarlos a la base de datos
+#     save_to_db_from_files(result_dir, 'reachability.db3', batch_size)
 
-if __name__ == '__main__':
-    main(cart_step=0.05, samples=20, batch_size=1000)
+# if __name__ == '__main__':
+#     main(cart_step=0.05, samples=20, batch_size=1000)
 
+###############################################################
+#####
+###############################################################
 
+import numpy as np
+import pickle
+import os
+from tqdm import tqdm
+from itertools import product
+from scipy.spatial.transform import Rotation
+from multiprocessing import Pool, cpu_count
+import re
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+# ========== FUNCIONES AUXILIARES ==========
+def fibonacci_sphere(samples=100):
+    phi = np.pi * (3. - np.sqrt(5.))
+    y = 1 - 2 * np.arange(samples) / float(samples - 1)
+    radius = np.sqrt(1 - y ** 2)
+    theta = phi * np.arange(samples)
+    x = np.cos(theta) * radius
+    z = np.sin(theta) * radius
+    return np.stack((x, y, z), axis=1)
+
+def generate_orientations(samples=20):
+    points = fibonacci_sphere(samples)
+    origin_vector = np.array([[0, 0, 1]])
+    rot_matrices = []
+
+    for point in points:
+        rot, _ = Rotation.align_vectors([point], origin_vector)
+        rot_matrices.append(rot.as_matrix())
+
+    # === AÑADIR 8 ORIENTACIONES AXIALES ===
+    axial_dirs = [
+        [1, 0, 0], [-1, 0, 0],
+        [0, 1, 0], [0, -1, 0],
+        [0, 0, 1], [0, 0, -1]
+        # [1, 1, 0], [-1, -1, 0]
+    ]
+    # axial_dirs = [np.array(v) / np.linalg.norm(v) for v in axial_dirs]
+    axial_indices = range(len(rot_matrices), len(rot_matrices) + len(axial_dirs))  # Indices de las orientaciones axiales
+
+    for vec in axial_dirs:
+        rot, _ = Rotation.align_vectors([vec], origin_vector)
+        rot_matrices.append(rot.as_matrix())
+
+    return rot_matrices, axial_indices
+
+def chunkify(lst, size):
+    for i in range(0, len(lst), size):
+        yield lst[i:i + size]
+
+def visualize_orientations(rot_matrices, axial_indices, title="Orientaciones generadas"):
+    origin_vector = np.array([0, 0, 1])
+    rotated_vectors = np.array([R @ origin_vector for R in rot_matrices])
+
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plot the rotated vectors as arrows
+    ax.quiver(0, 0, 0,
+              rotated_vectors[:, 0],
+              rotated_vectors[:, 1],
+              rotated_vectors[:, 2],
+              color='blue', length=0.8, normalize=True)
+
+    # Scatter the tips
+    ax.scatter(rotated_vectors[:, 0], rotated_vectors[:, 1], rotated_vectors[:, 2], s=40, c='red')
+
+    # Mark axial orientations in a different color (green)
+    ax.scatter(rotated_vectors[axial_indices, 0], rotated_vectors[axial_indices, 1], rotated_vectors[axial_indices, 2], s=80, c='green', label="Axial Orientations")
+
+    ax.set_xlim([-1, 1])
+    ax.set_ylim([-1, 1])
+    ax.set_zlim([-1, 1])
+    ax.set_title(title)
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.legend()
+    plt.tight_layout()
+    plt.show(block=False)
+    input("Presiona ENTER para cerrar la visualización de orientaciones...")
+    plt.close()
+
+# ========== PARÁMETROS ==========
+n_orientations = 30
+cart_min, cart_max, cart_step = -1.6, 1.6, 0.02
+block_size = 10000
+
+# ========== GENERAR Y GUARDAR ORIENTACIONES ==========
+orientations, axial_indices = generate_orientations(n_orientations)
+n_orientations = len(orientations)
+orientation_filename = f"orientations_{n_orientations}.pkl"
+with open(orientation_filename, "wb") as f:
+    pickle.dump(orientations, f)
+print(f"{n_orientations} orientaciones generadas y guardadas en '{orientation_filename}'")
+visualize_orientations(orientations, axial_indices)
+
+# ========== ESPACIO DE VOXELES ==========
+x_vals = np.arange(cart_min + cart_step / 2, cart_max, cart_step)
+y_vals = np.arange(cart_min + cart_step / 2, cart_max, cart_step)
+z_vals = np.arange(cart_min + cart_step / 2, cart_max, cart_step)
+voxel_centers = list(product(range(len(x_vals)), range(len(y_vals)), range(len(z_vals))))
+
+batches = list(chunkify(voxel_centers, block_size))
+
+# ========== FUNCIÓN PARA PROCESAR UN BLOQUE ==========
+def process_voxel_batch(batch, orientations, x_vals, y_vals, z_vals, batch_id):
+    from closed_form_algorithm import closed_form_algorithm_complete
+    results = {}
+
+    # Nombre del archivo de salida
+    output_file = f"result_files/voxel_batch_{batch_id}_{cart_step}_step_{n_orientations}_orientations.pkl"
+
+    # Verificar si el archivo ya existe. Si es así, omitir este batch.
+    if os.path.exists(output_file):
+        print(f"[SKIP] El archivo '{output_file}' ya existe. Omitiendo este batch.")
+        return 0  # Retornar 0 si no se procesa ningún voxel
+    
+    for ix, iy, iz in batch:
+        pos = np.array([x_vals[ix], y_vals[iy], z_vals[iz]])
+        voxel_result = {}
+        for i, rot in enumerate(orientations):
+            T = np.eye(4)
+            T[:3, :3] = rot
+            T[:3, 3] = pos
+            try:
+                solutions = closed_form_algorithm_complete(T, type=0)
+            except Exception:
+                continue
+
+            valid_solutions = [q.tolist() for q in solutions if q is not None and np.all(np.isfinite(q))]
+
+            if valid_solutions:
+                voxel_result[i] = valid_solutions
+
+        if voxel_result:
+            results[(ix, iy, iz)] = voxel_result
+
+    os.makedirs("result_files", exist_ok=True)
+    with open(output_file, "wb") as f:
+        pickle.dump(results, f)
+
+    return len(results)
+
+# ========== PROCESAMIENTO EN PARALELO CON BARRA DE PROGRESO ==========
+print(f"Procesando {len(batches)} bloques de voxeles en paralelo...\n")
+
+def wrap_batch(batch_id_and_batch):
+    batch_id, batch = batch_id_and_batch
+    return process_voxel_batch(batch, orientations, x_vals, y_vals, z_vals, batch_id)
+
+with Pool(processes=cpu_count()) as pool:
+    for _ in tqdm(pool.imap_unordered(wrap_batch, enumerate(batches)),
+                  total=len(batches),
+                  desc="Procesando batches"):
+        pass
+
+print("Procesamiento completo. Archivos parciales almacenados en 'result_files/'")
+
+# ========== FUSIÓN DE TODOS LOS ARCHIVOS ==========
+print("\nFusionando archivos parciales...")
+fused_voxels = {}
+
+# Expresión regular para extraer step y orientations del nombre
+pattern = re.compile(r"voxel_batch_\d+_(?P<step>[\d.]+)_step_(?P<orient>\d+)_orientations\.pkl")
+
+for file in tqdm(sorted(os.listdir("result_files"))):
+    match = pattern.match(file)
+    if not match:
+        continue  # no es un archivo válido
+
+    file_step = float(match.group("step"))
+    file_orient = int(match.group("orient"))
+
+    if not (np.isclose(file_step, cart_step) and file_orient == n_orientations):
+        print(f"[SKIP] Archivo '{file}' tiene step={file_step}, orientations={file_orient}, no coincide.")
+        continue
+
+    file_path = os.path.join("result_files", file)
+    with open(file_path, "rb") as f:
+        data = pickle.load(f)
+        if not isinstance(data, dict):
+            print(f"[ERROR] Formato inválido en archivo {file}, se omitirá.")
+            continue
+        fused_voxels.update(data)
+
+final_db_file = f"voxels_data_{cart_step}_step_{n_orientations}_orientations.pkl"
+
+if os.path.exists(final_db_file):
+    respuesta = input(f"[AVISO] El archivo '{final_db_file}' ya existe. ¿Deseas sobrescribirlo? (s/n): ").strip().lower()
+    if respuesta != "s":
+        print("Fusión cancelada por el usuario. El archivo no fue sobrescrito.")
+        exit(0)
+
+with open(final_db_file, "wb") as f:
+    pickle.dump(fused_voxels, f)
+
+print(f"Fusión completada. Base de datos guardada en '{final_db_file}'")
+
+# ========== EJEMPLO DE CONSULTA ==========
+print("\nEjemplo de consulta para (30, 30, 30), orientación 5:")
+with open("orientations.pkl", "rb") as f:
+    orientations = pickle.load(f)
+
+db_filename = f"voxels_data_{cart_step}_step_{n_orientations}_orientations.pkl"
+with open(db_filename, "rb") as f:
+    db = pickle.load(f)
+
+voxel = (30, 30, 30)
+orientation_idx = 5
+soluciones = db.get(voxel, {}).get(orientation_idx, [])
+print(f"Soluciones encontradas: {len(soluciones)}")
+
+for orientation_idx in range(20):
+    s = db.get((30, 30, 30), {}).get(orientation_idx, [])
+    print(f"Orientación {orientation_idx} → {len(s)} soluciones")
+
+total_voxels = len(db)
+total_voxel_orientations = sum(len(orientations) for orientations in db.values())
+total_solutions = sum(len(qs) for orientations in db.values() for qs in orientations.values())
+
+print(f"Voxeles únicos con al menos una solución: {total_voxels}")
+print(f"Combinaciones (voxel, orientación) con soluciones: {total_voxel_orientations}")
+print(f"Número total de soluciones encontradas (joint configs): {total_solutions}")
 
 
 
