@@ -6,3 +6,4 @@ __pycache__/
 experiment_scripts/result_files
 experiment_scripts/voxel_temp
 experiment_scripts/Voxels
+experiment_scripts/voxels_data_0.05_step_20_orientations.pkl
