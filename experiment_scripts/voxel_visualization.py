@@ -7,7 +7,7 @@ from collections import Counter
 from matplotlib import animation
 
 # Cargar archivo final de voxeles
-angle_divisions = 36  # ajusta esto si cambiaste la resolución
+angle_divisions = 20  # ajusta esto si cambiaste la resolución
 filename = f"voxels_data_{angle_divisions}.pkl"
 
 if not os.path.exists(filename):

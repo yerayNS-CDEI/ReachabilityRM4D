@@ -2,7 +2,11 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
+from pymongo import MongoClient
 
+client = MongoClient("mongodb+srv://yeraynavarro:LzXKhwG6QWadXY4X@ur10e-database-005.l56hsfs.mongodb.net/")
+db = client["UR10e-database-005"]
+collection = db["voxels"]
 
 def load_database(db_path, orientations_path):
     with open(db_path, 'rb') as f:
@@ -48,7 +52,16 @@ def evaluate_base_positions(ee_targets, db, orientations, cart_step=0.05, area_s
                 dx = (i - center_offset) * cart_step + cart_step / 2
                 dy = (j - center_offset) * cart_step + cart_step / 2
                 base_pos = np.array([ee_pos[0] - dx, ee_pos[1] - dy, 0.0])
+                print("base_pos",base_pos)
                 rel_pos = compute_relative_pose(base_pos, ee_pos)
+
+                ### METODOS DE MONGODB PARA BASE DE DATOS
+
+                # collection.find({"coords":str(tuple(rel_pos[0],rel_pos[1], rel_pos[2]))})
+                
+                ##########################################
+
+                print("rel_pos",rel_pos)
                 voxel_idx = find_closest_voxel(rel_pos, cart_step)
                 print(f"Posición relativa: {rel_pos}, Voxel calculado: {voxel_idx}")
 
