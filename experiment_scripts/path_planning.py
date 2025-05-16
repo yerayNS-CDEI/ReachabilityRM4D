@@ -93,7 +93,7 @@ filename = "reachability_map_27_fused"
 fn_npy = f"{filename}.npy"
 reachability_map_fn = os.path.join('data',f'eval_poses_{robot_name}',fn_npy)
 reachability_map = np.load(reachability_map_fn, allow_pickle=True).item()
-print('rmap: ',reachability_map)
+# print('rmap: ',reachability_map)
 
 # Extract grid size and resolution
 parts = filename.split('_')
@@ -110,8 +110,10 @@ y_max = radius
 
 # Calculate resolution and x, y values
 resolution = (x_max - x_min) / grid_size
+print('resolution of the map: ',resolution)
 x_vals = np.linspace(x_min + (resolution / 2), x_max - (resolution / 2), grid_size)
 y_vals = np.linspace(y_min + (resolution / 2), y_max - (resolution / 2), grid_size)
+print('Values of the voxels centers: ',x_vals)
 
 reach_data = []
 for z_value, reachability_slice in reachability_map.items():

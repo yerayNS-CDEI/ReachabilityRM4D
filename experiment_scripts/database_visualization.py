@@ -89,13 +89,17 @@ z_vals = np.arange(cart_min + cart_step/2, cart_max, cart_step)
 # === REPRESENTACIÓN 1: VOXELES COLOREADOS POR ORIENTACIONES CON SOLUCIONES ===
 print("Generando mapa 3D de voxeles con codificación por color...")
 
+# print('db: ',db)
+print('db.items()[0]: ', db.items()[0])
+input()
+
 vox_coords = []
 vox_colors = []
 max_sols = 0
 
 for (ix, iy, iz), orient_dict in db.items():
-    print((ix, iy, iz))
-    input()
+    # print((ix, iy, iz))
+    # input()
     n_orients = len(orient_dict)
     n_solutions = sum(len(qs) for qs in orient_dict.values())
     if n_orients == 0:

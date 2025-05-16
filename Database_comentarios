@@ -1,0 +1,21 @@
+(x,y,z):
+    - Orn 1: 
+    	- sol1: [q1,q2,q3,q4,q5,q6]
+    	- sol8: [...]
+    - Orn 20:
+
+Base Datos: se guarda en disco y no guarda en la ram
+1 tabla - parametros(campos) (x,y,z), orn(x,y,z,w), solucion(array)
+SQL
+Campo indice: informacion de coordenadas conjuntas
+Recomendacion: cambiar coordenadas a enteros, y mantener orientaciones
+
+Toda la informacion en un unico campo conjunto (crear un index - big integer). 
+
+Colocar las soluciones en un array de arrays para conseguir registro unico.
+
+MariaDB: utilizar multiprocessing (para buscar)
+
+Python --> no hacer insert !!
+       --> utilizar copy
+       batch insert

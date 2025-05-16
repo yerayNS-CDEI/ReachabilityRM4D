@@ -570,7 +570,7 @@ def visualize_orientations(rot_matrices, axial_indices, title="Orientaciones gen
     ax.scatter(rotated_vectors[:, 0], rotated_vectors[:, 1], rotated_vectors[:, 2], s=40, c='red')
 
     # Mark axial orientations in a different color (green)
-    ax.scatter(rotated_vectors[axial_indices, 0], rotated_vectors[axial_indices, 1], rotated_vectors[axial_indices, 2], s=80, c='green', label="Axial Orientations")
+    ax.scatter(rotated_vectors[axial_indices, 0], rotated_vectors[axial_indices, 1], rotated_vectors[axial_indices, 2], s=100, c='green', label="Axial Orientations")
 
     ax.set_xlim([-1, 1])
     ax.set_ylim([-1, 1])
@@ -592,6 +592,7 @@ block_size = 10000
 
 # ========== GENERAR Y GUARDAR ORIENTACIONES ==========
 orientations, axial_indices = generate_orientations(n_orientations)
+print('axial_indices: ',axial_indices)
 n_orientations = len(orientations)
 orientation_filename = f"orientations_{n_orientations}.pkl"
 with open(orientation_filename, "wb") as f:

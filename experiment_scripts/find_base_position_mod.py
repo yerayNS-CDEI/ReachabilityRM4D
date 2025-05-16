@@ -177,8 +177,9 @@ def main():
 
     x_limits = [-4, 4]
     y_limits = [-4, 4]
-    n_bins_x = 100
-    n_bins_y = 100
+    n_bins_x = int((x_limits[1]-x_limits[0])/0.1)   # resolution must be equal or multiple of map resolution (0.1)
+    n_bins_y = int((y_limits[1]-y_limits[0])/0.1)   # 
+    print("x_bins, y_bins: ", (n_bins_x, n_bins_y))
 
     grids = []
     for i, pose in enumerate(poses_ee):
@@ -193,7 +194,7 @@ def main():
             # print('base_pos shape',np.shape(base_pos))
             indv_grid.add_base_positions(base_pos)
             grids.append(indv_grid)
-            # indv_grid.show_as_img()
+            indv_grid.show_as_img()
             print(f"[DEBUG] Pose #{i} genera {len(base_pos)} posiciones base")
         except IndexError as e:
             print(f"[WARN] Pose #{i} fuera del mapa de alcanzabilidad: {e}")
@@ -221,10 +222,15 @@ def main():
     sim.add_frame(p, q)
     input('Origin')
 
-    # === DEFINICIOn DE OBSTACULOS ===
+    # === DEFINICION DE OBSTACULOS ===
     # Ejemplo de mapa con obstáculos (1: libre, 0: ocupado)
     occupancy_map = np.ones((n_bins_x, n_bins_y), dtype=np.uint8)
-    occupancy_map[74:100, 50:100] = 0  # Simulamos un obstáculo rectangular en el centro
+    obs_coord_x = [1.7, 3]
+    obs_coord_y = [0, 3.5]
+    obs_ctg = n_bins_x/((x_limits[1]-x_limits[0]))
+    obs_ctg_cst = -n_bins_x*0.5
+    # occupancy_map[int(obs_coord_x[0]*obs_coord_to_grid):int(obs_coord_x[1]*obs_coord_to_grid), int(obs_coord_y[0]*obs_coord_to_grid):int(obs_coord_y[1]*obs_coord_to_grid)] = 0  # Simulamos un obstáculo rectangular en el centro
+    occupancy_map[int(obs_coord_x[0]*obs_ctg+obs_ctg_cst):int(obs_coord_x[1]*obs_ctg+obs_ctg_cst), int(obs_coord_y[0]*obs_ctg+obs_ctg_cst):int(obs_coord_y[1]*obs_ctg+obs_ctg_cst)] = 0  # Simulamos un obstáculo rectangular en el centro    
     # Asegúrate de que ambos arrays son del mismo tamaño
     assert occupancy_map.shape == grids_intersect[0].grid.shape, "Dimensiones incompatibles"
     # Opción 1: in-place usando indexación booleana

@@ -161,8 +161,8 @@ ax.set_zlabel('Z Label')
 fig.colorbar(scatter, ax=ax, label='Reachability')
 plt.show(block=False)
 
-# # Wait for user interaction before closing all plots
-# input("Press Enter to close all plots...")
+# Wait for user interaction before closing all plots
+input("Press Enter to close all plots...")
 
 ##############################################################################
 ##############################################################################

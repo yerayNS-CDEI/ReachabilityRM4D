@@ -1,28 +1,56 @@
 %% Robot Modelling
 clear; clc; close all
 
-% Link length UR5
-L1 = 0.0892;
-L2 = 0.1359;
-L3 = 0.4250;
-L4 = 0.1197;
-L5 = 0.3923;
-L6 = 0.0930;
-L7 = 0.0947;
-L8 = 0.0823;
+% % Link length UR10e
+% L1 = 0.0892;
+% L2 = 0.1359;
+% L3 = 0.4250;
+% L4 = 0.1197;
+% L5 = 0.3923;
+% L6 = 0.0930;
+% L7 = 0.0947;
+% L8 = 0.0823;
+% 
+% % d
+% vd1 = L1;
+% vd2 = 0;
+% vd3 = 0;
+% vd4 = L2-L4+L6;
+% vd5 = L7;
+% vd6 = L8;
+% 
+% % a
+% va1 = 0;
+% va2 = -L3;
+% va3 = -L5;
+% va4 = 0;
+% va5 = 0;
+% va6 = 0;
 
-% d
-vd1 = L1;
+% % alpha
+% valpha1 = pi/2;
+% valpha2 = 0;
+% valpha3 = 0;
+% valpha4 = pi/2;
+% valpha5 = -pi/2;
+% valpha6 = 0;
+
+% % Link length UR10e
+% L1, L2, L3, L4 = 
+% L5, L6, L7, L8 = 
+
+ % d
+vd1 = 0.1807;
 vd2 = 0;
 vd3 = 0;
-vd4 = L2-L4+L6;
-vd5 = L7;
-vd6 = L8;
+vd4 = 0.17415;
+vd5 = 0.11985;
+vd6 = 0.11655;
 
 % a
 va1 = 0;
-va2 = -L3;
-va3 = -L5;
+va2 = -0.6127;
+va3 = -0.57155;
 va4 = 0;
 va5 = 0;
 va6 = 0;
@@ -42,10 +70,10 @@ L(3) = Link([0  vd3  va3  valpha3]); % L(3) = Link([0         0 -L5     0]);
 L(4) = Link([0  vd4  va4  valpha4]); % L(4) = Link([0  L2-L4+L6   0  pi/2]); offset=-pi/2
 L(5) = Link([0  vd5  va5  valpha5]); % L(5) = Link([0        L7   0 -pi/2]);
 L(6) = Link([0  vd6  va6  valpha6]); % L(6) = Link([0        L8   0     0]);
-UR5 = SerialLink(L, 'name', 'UR5')
+UR10e = SerialLink(L, 'name', 'UR10e')
 
 % % Plot configuration
-% UR5.plot([0 0 0 0 0 0])
+% UR10e.plot([0 0 0 0 0 0])
 
 %% Forward Kinematics
 
@@ -156,7 +184,8 @@ A06 = simplify(A01*A12*A23*A34*A45*A56)
 
 %% Inverse Kinematics - Closed form computation
 
-qa = [pi/4,pi/3,pi/2,pi/4,pi/3,pi/2];
+% qa = [pi/4,pi/3,pi/2,pi/4,pi/3,pi/2];
+qa = [-1.589 -1.466 -1.798  3.265 -0.019  1.571];
 T06 = double(subs(A06,{q1,q2,q3,q4,q5,q6},{qa})) % tfs_ee
 
 % Previous determinations
@@ -346,9 +375,9 @@ idx
 
 % Plot solution configurations
 for i = 1:8
-    UR5.plot(sol(i,:))
+    UR10e.plot(sol(i,:))
 end
-% UR5.plot(sol(8,:))
+% UR10e.plot(sol(8,:))
 
 % % Configs determined by Final Work code (verified solution)
 % Msol = [2.2952    0.4186    2.1421   -3.0245    0.5247   -1.0290;
@@ -359,7 +388,7 @@ end
 %         0.7854   -3.7452   -1.5708    2.4362    1.0472    1.5708;
 %         0.7854    0.7712    2.1519   -2.6613   -1.0472   -1.5708;
 %         0.7854   -3.5081   -2.1519    5.9218   -1.0472   -1.5708];
-% % UR5.plot(Msol(8,:))
+% % UR10e.plot(Msol(8,:))
 
 %% Inverse Kinematics - Closed form Algorithm 2 (FSM)
 % %#codegen
@@ -601,7 +630,7 @@ start_orientation = [interpolated_rotation_matrices(:,:,1),[x_coord(1);0.5;0.3];
 q_current = closed_form_algorithm(start_orientation, [pi/4,pi/3,pi/2,pi/4,pi/3,pi/2], 0);
 
 for i = 2:size(interpolated_rotation_matrices,3)
-    UR5.plot(q_current)
+    UR10e.plot(q_current)
     orientation = [interpolated_rotation_matrices(:,:,i),[x_coord(i);0.5;0.3]; [0 0 0 1]];
     q_new = closed_form_algorithm(orientation, q_current, 0);
     q_current = q_new;
@@ -717,7 +746,7 @@ disp('Step ')
 disp(q_current)
 
 for i = 2:size(interpolated_rotation_matrices,3)
-    % UR5.plot(q_current)
+    % UR10e.plot(q_current)
     orientation = [interpolated_rotation_matrices(:,:,i),[path_world(i,1);path_world(i,2);path_world(i,3)]; [0 0 0 1]];
     q_new = closed_form_algorithm(orientation, q_current, algorithm);
     q_current = q_new;
@@ -752,7 +781,7 @@ q_path = [[ 1.3121 -2.2716 -1.4694  1.5259  0.8725  1.3267];
 
 for i = 1:size(q_path,1)
     q_current = q_path(i,:);
-    UR5.plot(q_current)
+    UR10e.plot(q_current)
     pause(1)
 end
 
@@ -810,7 +839,7 @@ Step 15: q = [-1.5893 -1.4663 -1.7984  3.2647 -0.0185  1.5708]
 %% Robot Modelling
 clear; clc; close all
 
-% % Link length UR10e
+% % Link length UR5
 % L1 = ;
 % L2 = ;
 % L3 = ;
@@ -851,10 +880,10 @@ L(3) = Link([0  vd3  va3  valpha3]); % L(3) = Link([0         0 -L5     0]);
 L(4) = Link([0  vd4  va4  valpha4]); % L(4) = Link([0  L2-L4+L6   0  pi/2]); offset=-pi/2
 L(5) = Link([0  vd5  va5  valpha5]); % L(5) = Link([0        L7   0 -pi/2]);
 L(6) = Link([0  vd6  va6  valpha6]); % L(6) = Link([0        L8   0     0]);
-UR5 = SerialLink(L, 'name', 'UR10e')
+UR5 = SerialLink(L, 'name', 'UR5')
 
 % % Plot configuration
-% UR10e.plot([0 0 0 0 0 0])
+% UR5.plot([0 0 0 0 0 0])
 
 % Forward Kinematics
 
