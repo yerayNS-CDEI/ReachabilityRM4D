@@ -244,19 +244,22 @@ def main():
         print("[ERROR] No hay posiciones base válidas tras aplicar la máscara de obstáculos (unión)")
 
     # === ENCONTRAR MEJOR POSICIÓN BASE ===
+    print('Buscando mejor posicion ...')
     x_intersect, y_intersect = grids_intersect[0].get_best_pos()
+    # x_intersect = 1.2
+    # y_intersect = 1.8
     print('x_intersect, y_intersect: ', x_intersect, y_intersect)
     tf_base = np.eye(4)
     tf_base[:2, 3] = x_intersect, y_intersect
     p, q = sim.tf_to_pos_quat(tf_base)
     sim.add_frame(p, q)
 
-    x_union, y_union = grids_union[0].get_best_pos()
-    print('x_union, y_union: ', x_union, y_union)
-    tf_base = np.eye(4)
-    tf_base[:2, 3] = x_union, y_union
-    p, q = sim.tf_to_pos_quat(tf_base)
-    sim.add_frame(p, q)
+    # x_union, y_union = grids_union[0].get_best_pos()
+    # print('x_union, y_union: ', x_union, y_union)
+    # tf_base = np.eye(4)
+    # tf_base[:2, 3] = x_union, y_union
+    # p, q = sim.tf_to_pos_quat(tf_base)
+    # sim.add_frame(p, q)
 
     # === EVALUAR CON IK ===
     sim_direct = Simulator(with_gui=False)
