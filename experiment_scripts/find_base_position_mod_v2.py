@@ -299,50 +299,50 @@ def define_global_grid(ee_targets, cart_step=0.05, global_size=4.0):
     return x_vals, y_vals, global_min, global_max
 
 
-def evaluate_base_positions_global(ee_targets, db, orientations,
-                                   cart_step=0.05, area_size=1.6*2,
-                                   global_size=4.0, cart_min=-1.6):
-    x_vals, y_vals, global_min, global_max = define_global_grid(ee_targets, cart_step, global_size)
-    H, W = len(y_vals), len(x_vals)
-    print((H,W))
-    union_map = np.zeros((H, W))
-    intersection_votes = np.zeros((H, W), dtype=int)
+# def evaluate_base_positions_global(ee_targets, db, orientations,
+#                                    cart_step=0.05, area_size=1.6*2,
+#                                    global_size=4.0, cart_min=-1.6):
+#     x_vals, y_vals, global_min, global_max = define_global_grid(ee_targets, cart_step, global_size)
+#     H, W = len(y_vals), len(x_vals)
+#     print((H,W))
+#     union_map = np.zeros((H, W))
+#     intersection_votes = np.zeros((H, W), dtype=int)
 
-    half_cells = int(area_size / (2 * cart_step))
+#     half_cells = int(area_size / (2 * cart_step))
 
-    for ee_pos, ee_rot in ee_targets:
-        local_votes = np.zeros((H, W), dtype=int)
-        cx = np.argmin(np.abs(x_vals - ee_pos[0]))
-        cy = np.argmin(np.abs(y_vals - ee_pos[1]))
+#     for ee_pos, ee_rot in ee_targets:
+#         local_votes = np.zeros((H, W), dtype=int)
+#         cx = np.argmin(np.abs(x_vals - ee_pos[0]))
+#         cy = np.argmin(np.abs(y_vals - ee_pos[1]))
 
-        for i in range(cy - half_cells, cy + half_cells):
-            for j in range(cx - half_cells, cx + half_cells):
-                if 0 <= i < H and 0 <= j < W:
-                    base_pos = np.array([x_vals[j], y_vals[i], 0.0])
-                    rel_pos = compute_relative_pose(base_pos, ee_pos)
-                    voxel_idx = find_closest_voxel(rel_pos, cart_step, cart_min)
+#         for i in range(cy - half_cells, cy + half_cells):
+#             for j in range(cx - half_cells, cx + half_cells):
+#                 if 0 <= i < H and 0 <= j < W:
+#                     base_pos = np.array([x_vals[j], y_vals[i], 0.0])
+#                     rel_pos = compute_relative_pose(base_pos, ee_pos)
+#                     voxel_idx = find_closest_voxel(rel_pos, cart_step, cart_min)
 
-                    # print(f"rel_pos: {rel_pos}, voxel_idx: {voxel_idx}")
+#                     # print(f"rel_pos: {rel_pos}, voxel_idx: {voxel_idx}")
 
-                    if all(v >= 0 for v in voxel_idx) and voxel_idx in db:
-                        similar_orients = find_similar_orientations(ee_rot, orientations)
-                        score = 0
-                        if len(similar_orients) == 0:
-                            print(f"[WARN] Sin orientaciones similares para pose en {ee_pos[:2]}")
-                        for idx in similar_orients:
-                            configs = db[voxel_idx].get(idx, [])
-                            score += len(configs)
-                        union_map[i, j] += score
-                        if np.max(union_map) == 0:
-                            print("[ERROR] El mapa de unión está vacío. Verifica el umbral de orientación o la base de datos.")
-                        if score > 0:
-                            local_votes[i, j] = 1
+#                     if all(v >= 0 for v in voxel_idx) and voxel_idx in db:
+#                         similar_orients = find_similar_orientations(ee_rot, orientations)
+#                         score = 0
+#                         if len(similar_orients) == 0:
+#                             print(f"[WARN] Sin orientaciones similares para pose en {ee_pos[:2]}")
+#                         for idx in similar_orients:
+#                             configs = db[voxel_idx].get(idx, [])
+#                             score += len(configs)
+#                         union_map[i, j] += score
+#                         if np.max(union_map) == 0:
+#                             print("[ERROR] El mapa de unión está vacío. Verifica el umbral de orientación o la base de datos.")
+#                         if score > 0:
+#                             local_votes[i, j] = 1
 
 
-        intersection_votes += local_votes
+#         intersection_votes += local_votes
 
-    intersection_map = np.where(intersection_votes == len(ee_targets), union_map, 0)
-    return union_map, intersection_map, x_vals, y_vals
+#     intersection_map = np.where(intersection_votes == len(ee_targets), union_map, 0)
+#     return union_map, intersection_map, x_vals, y_vals
 
 def add_obstacle_by_coords(occupancy_map, x_vals, y_vals, x_min, y_min, x_max, y_max):
     """
@@ -401,19 +401,20 @@ def evaluate_base_positions_on_grid(
                 voxel_idx = find_closest_voxel(rel_pos, cart_step, cart_min)
 
                 if all(v >= 0 for v in voxel_idx) and voxel_idx in db:
-                    similar_orients = find_similar_orientations(
-                        ee_rot, orientations, threshold_rad=np.deg2rad(30)
-                    )
+                    similar_orients = find_similar_orientations(ee_rot, orientations, threshold_rad=np.deg2rad(30))
                     score = sum(len(db[voxel_idx].get(idx, [])) for idx in similar_orients)
                     union_map[i, j] += score
-                    if np.max(union_map) == 0:
-                        print("[ERROR] El mapa de unión está vacío. Verifica el umbral de orientación o la base de datos.")
                     if score > 0:
                         local_votes[i, j] = 1
 
         intersection_votes += local_votes
 
     intersection_map = np.where(intersection_votes == len(ee_targets), union_map, 0)
+
+    if np.max(union_map) == 0:
+        print("[ERROR] El mapa de unión está vacío. Verifica el umbral de orientación o la base de datos.")
+    if np.max(intersection_map) == 0:
+        print("[ERROR] El mapa de intersección está vacío. Verifica el umbral de orientación o la base de datos.")
     return union_map, intersection_map
 
 
