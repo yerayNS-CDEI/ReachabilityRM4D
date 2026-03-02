@@ -501,7 +501,7 @@ def select_optimal_base(score_map, x_vals, y_vals, ee_targets, min_distance=0.3,
 
 if __name__ == '__main__':
     cart_step = 0.05
-    n_orientations = 36
+    n_orientations = 20
     area_size = 1.6 * 2
     global_size = 4.0
     cart_min = -1.6
@@ -509,7 +509,7 @@ if __name__ == '__main__':
     # === 1. Cargar base de datos
     db, orientations = load_database(
         db_path=f"voxels_data_{cart_step}_step_{n_orientations}_orientations.pkl",
-        orientations_path="orientations.pkl"
+        orientations_path=f"orientations_{n_orientations}.pkl"
     )
 
     # === 2. Definir objetivos

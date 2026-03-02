@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import burg_toolkit as burg
 import matplotlib.pyplot as plt
 
 from rm4d import ReachabilityMap4D
@@ -209,6 +208,7 @@ def main():
     for i in range(1, len(grids)):
         grids_union[0].union(grids_union[i])
         grids_intersect[0].intersect(grids_intersect[i])
+    grids_intersect[0].grid = np.round(grids_intersect[0].grid, 3)
 
     grids_intersect[0].show_as_img("grids_intersect")
     grids_union[0].show_as_img("grids_union")
@@ -243,11 +243,47 @@ def main():
     if not np.any(grids_union[0].grid):
         print("[ERROR] No hay posiciones base válidas tras aplicar la máscara de obstáculos (unión)")
 
-    # === ENCONTRAR MEJOR POSICIÓN BASE ===
-    print('Buscando mejor posicion ...')
-    x_intersect, y_intersect = grids_intersect[0].get_best_pos()
-    # x_intersect = 1.2
-    # y_intersect = 1.8
+    # === ENCONTRAR MEJOR POSICIÓN BASE (simple: máximos -> filtro distancia -> más centrado) ===
+    G = grids_intersect[0].grid
+    max_val = np.max(G)
+    print("Valor máximo de la grid:", max_val)
+
+    # Índices de todos los óptimos EXACTOS (tras redondeo)
+    max_idx = np.argwhere(G == max_val)
+    print(f"[INFO] Nº de celdas óptimas: {len(max_idx)}")
+
+    # Coordenadas físicas de cada celda óptima
+    cands_xy_all = [grids_intersect[0].idx_to_xy(int(i), int(j)) for (i, j) in max_idx]
+
+    # Centroide de las poses
+    xs = poses_ee[:, 0, 3]
+    ys = poses_ee[:, 1, 3]
+    cx, cy = float(np.mean(xs)), float(np.mean(ys))
+
+    # Filtro duro: distancia mínima a la pose más cercana
+    MIN_DIST = 0.50   # <-- ajusta a tu gusto (m)
+    def ok_min_dist(x, y):
+        return np.min(np.hypot(x - xs, y - ys)) >= MIN_DIST
+
+    cands_xy = [(x, y) for (x, y) in cands_xy_all if ok_min_dist(x, y)]
+    print(f"[INFO] Candidatos tras distancia mínima ({MIN_DIST} m): {len(cands_xy)}")
+
+    # Si el filtro deja vacío, cae al conjunto original de óptimos
+    if not cands_xy:
+        cands_xy = cands_xy_all
+        print("[WARN] Ningún óptimo cumple la distancia mínima; usando óptimos sin filtrar.")
+
+    # Escoge el más centrado (mínima distancia al centroide)
+    x_intersect, y_intersect = min(cands_xy, key=lambda xy: np.hypot(xy[0]-cx, xy[1]-cy))
+    print("[INFO] Centroide:", (cx, cy))
+    print("[INFO] Base seleccionada:", (x_intersect, y_intersect))
+
+    # Visualiza algunos candidatos en verde para ver la “familia” de óptimos
+    for (vx, vy) in cands_xy[:20]:
+        sim.add_sphere(pos=[vx, vy, 0.02], radius=0.03, color=[0.2, 1.0, 0.2])
+
+    input("GRID PLOTTED (óptimos en verde; seleccionado el más centrado)")
+
     print('x_intersect, y_intersect: ', x_intersect, y_intersect)
     tf_base = np.eye(4)
     tf_base[:2, 3] = x_intersect, y_intersect

@@ -73,7 +73,7 @@ cart_step = 0.05
 cart_min, cart_max = -1.6, 1.6
 n_orientations = 20
 filename = f"voxels_data_{cart_step}_step_{n_orientations}_orientations.pkl"
-orientation_file = "orientations.pkl"
+orientation_file = f"orientations_{n_orientations}.pkl"
 
 # === CARGAR BASE DE DATOS ===
 with open(filename, "rb") as f:
@@ -90,7 +90,7 @@ z_vals = np.arange(cart_min + cart_step/2, cart_max, cart_step)
 print("Generando mapa 3D de voxeles con codificación por color...")
 
 # print('db: ',db)
-print('db.items()[0]: ', db.items()[0])
+# print('db.items()[0]: ', db.items()[0])
 input()
 
 vox_coords = []

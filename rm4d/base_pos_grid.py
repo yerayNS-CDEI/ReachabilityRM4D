@@ -85,52 +85,48 @@ class BasePosGrid:
 
         self.grid += other_grid.grid
 
-    def get_best_pos(self):     # It takes one random from the better ones, how can we change it??
-        x_idx, y_idx = np.unravel_index(np.argmax(self.grid, axis=None), self.grid.shape)
+    def get_best_pos(self):
+    #     x_idx, y_idx = np.unravel_index(np.argmax(self.grid, axis=None), self.grid.shape)
+    #     x = self.x_limits[0] + (x_idx + 0.5) * self.x_res
+    #     y = self.y_limits[0] + (y_idx + 0.5) * self.y_res
+    #     return x, y
+        best_list = self.ranked_positions(k=1, rel_tol=0.0)
+        return best_list[0] if best_list else (None, None)
+
+    def idx_to_xy(self, x_idx: int, y_idx: int):
+        """Devuelve coordenadas físicas del centro de celda para (x_idx, y_idx)."""
         x = self.x_limits[0] + (x_idx + 0.5) * self.x_res
         y = self.y_limits[0] + (y_idx + 0.5) * self.y_res
-
-        # Encuentra el valor máximo en la grid
-        max_val = np.max(self.grid)
-        # Encuentra las posiciones (índices) que contienen el valor máximo
-        max_positions = np.argwhere(self.grid == max_val)
-        print("Max positions (indices) and their real coordinates:")
-        for pos in max_positions:
-            x_idx, y_idx = pos
-            x = self.x_limits[0] + (x_idx + 0.5) * self.x_res
-            y = self.y_limits[0] + (y_idx + 0.5) * self.y_res
-            print(f"Index: {pos}, Real Coordinates: (x={x:.2f}, y={y:.2f})")
-
-        
-    
         return x, y
 
-    def show_as_img(self, title="Current Grid State"):
-        plt.figure()
+    def ranked_positions(self, k=10, rel_tol=0.02, score_fn=None, alpha=0.7):
+        """
+        Devuelve hasta k posiciones (x,y) con mayor puntuación total.
+        - rel_tol: acepta celdas con grid >= max*(1-rel_tol)
+        - score_fn(x,y) -> [0..1] añade criterios (centrado, distancia, etc.)
+        - alpha: peso de la grid frente al score_fn (0..1)
+        """
+        if np.all(self.grid == 0):
+            return []
+        max_val = float(np.max(self.grid))
+        cand_idx = np.argwhere(self.grid >= max_val * (1.0 - float(rel_tol)))
+        ranked = []
+        for (i, j) in cand_idx:
+            base = float(self.grid[i, j]) / max_val if max_val > 0 else 0.0
+            x, y = self.idx_to_xy(int(i), int(j))
+            extra = float(score_fn(x, y)) if score_fn is not None else 0.0
+            total = alpha * base + (1.0 - alpha) * extra
+            ranked.append((total, x, y))
+        ranked.sort(key=lambda t: t[0], reverse=True)
+        return [(x, y) for (_, x, y) in ranked[:k]]
 
-        # Evita división por 0 si grid es todo ceros
-        max_val = np.max(self.grid)
-        img = self.grid / max_val if max_val > 0 else self.grid
-
-        # Asignar ejes físicos
-        x_min, x_max = self.x_limits
-        y_min, y_max = self.y_limits
-
-        extent = [x_min, x_max, y_min, y_max]  # (left, right, bottom, top)
-
-        # Mostrar imagen rotada pero con ejes físicos
-        plt.imshow(np.rot90(img), extent=extent, origin='upper', cmap='hot')
-
-        plt.colorbar(label='Reachable')
-        plt.title(title)
-        plt.xlabel("Y (m)")
-        plt.ylabel("X (m)")
-        plt.grid(False)
-        plt.show(block=False)
+    def show_as_img(self):
+        img = self.grid / np.max(self.grid)
+        plt.imshow(img)
+        plt.show()
 
     def visualize_in_sim(self, sim: Simulator, skip_zero=True):
         max_val = np.max(self.grid)
-        print('max_val: ',max_val)
 
         for i in range(self.n_bins_x):
             for j in range(self.n_bins_y):
